@@ -178,12 +178,17 @@
     const findReplaceButton = doc.getElementById('find-replace');
     const findAllButton = doc.getElementById('find-all');
     const findStatus = doc.getElementById('find-status');
+    const copyButton = doc.getElementById('copy');
     const saveButton = doc.getElementById('save');
 
     /* The state of the editor. */
     let caret = { line: 1, column: 1 };
     let matchStart = -1;
     let matchEnd = -1;
+
+    /* The label of the copy button, and the timer that puts it back. */
+    const copyLabel = copyButton ? copyButton.textContent : 'copy md';
+    let copyTimer = null;
 
     /* The rows of the gutter and the ticks of the minimap, one per line. */
     let rows = [];
@@ -617,6 +622,64 @@
         event.preventDefault();
         replaceAll();
       });
+    }
+
+    /* ---- the copy button ---- */
+
+    if (copyButton) {
+      copyButton.addEventListener('click', function (event) {
+        event.preventDefault();
+        copyMarkdown(textarea.value);
+      });
+    }
+
+    /* Puts the document on the clipboard.
+     *
+     * The clipboard of the browser is only there in a secure context, and a
+     * page that is not one still copies through the old command.  Either way
+     * the button says what happened.
+     */
+    function copyMarkdown(text) {
+      const clipboard = view.navigator && view.navigator.clipboard;
+      if (clipboard && typeof clipboard.writeText === 'function') {
+        clipboard.writeText(text).then(
+          function () { flashCopy('copied'); },
+          function () { flashCopy(legacyCopy(text) ? 'copied' : 'failed'); }
+        );
+        return;
+      }
+      flashCopy(legacyCopy(text) ? 'copied' : 'failed');
+    }
+
+    /* The old way of copying, for a page that is not a secure context. */
+    function legacyCopy(text) {
+      const area = doc.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.top = '-1000px';
+      doc.body.appendChild(area);
+      area.select();
+      let done = false;
+      try {
+        done = doc.execCommand('copy');
+      } catch (error) {
+        done = false;
+      }
+      area.remove();
+      return done;
+    }
+
+    /* Shows the outcome of the copy on the button, for a moment. */
+    function flashCopy(message) {
+      if (!copyButton) return;
+      copyButton.textContent = message;
+      copyButton.classList.add('flash');
+      if (copyTimer) clearTimeout(copyTimer);
+      copyTimer = setTimeout(function () {
+        copyButton.textContent = copyLabel;
+        copyButton.classList.remove('flash');
+      }, 1200);
     }
 
     /* ---- the save button ---- */

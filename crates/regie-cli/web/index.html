@@ -255,6 +255,8 @@
   .toolbar button:hover { color: var(--text); border-color: var(--line); background: var(--panel-2); }
   .toolbar .spacer { flex: 1; }
   .toolbar button.save { color: var(--accent); border-color: var(--accent-dim); }
+  .toolbar button.copy { color: var(--accent); border-color: var(--accent-dim); }
+  .toolbar button.flash { color: var(--text-strong); background: var(--accent-glow); border-color: var(--accent); }
 
   .find { display: none; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line); background: var(--panel); align-items: center; }
   .find.on { display: flex; }
@@ -497,6 +499,7 @@
           <button data-md="table" title="table">table</button>
           <span class="spacer"></span>
           <button id="find-toggle" title="find and replace">find</button>
+          <button id="copy" class="copy" title="copy the document to the clipboard">copy md</button>
           <button id="save" class="save" title="download the document as a Markdown file">save .md</button>
         </div>
         <div class="find" id="find">
