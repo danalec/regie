@@ -117,7 +117,8 @@ the documentation should keep saying so.
 ### A model that knows the language
 
 The tokenizer folds accents and lower-cases the text, which is enough for
-Portuguese and English. A model that knows the language would segment
+Portuguese and English - the two languages the model supports, listed in
+[LANGUAGES.md](LANGUAGES.md). A model that knows the language would segment
 "cnpj" as one word rather than three, and would tell a request in Spanish
 from one in Portuguese.
 

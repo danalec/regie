@@ -41,7 +41,7 @@ match: 6..18 "ana@corp.com"
 group 1: 6..9 "ana"
 group 2: 10..18 "corp.com"
 
-$ cargo run -p regie-cli --bin regie -- intent 'validar CPF'
+$ cargo run -p regie-cli --bin regie -- intent 'validate a CPF'
 summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 {"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
 ```
@@ -74,6 +74,16 @@ the code, not a transcription of it.
 
 The dependency graph is a straight line. `regie-core` knows nothing about
 intents, models or files; `regie-intent` knows nothing about matching.
+
+## The languages of a request
+
+The intent layer understands a request written in **English** or in
+**Brazilian Portuguese**, and in no other language. The same request in either
+of the two reaches the same family; a request in a language that is not
+supported comes back as an ambiguity, which is the honest answer.
+
+The list is in [docs/LANGUAGES.md](docs/LANGUAGES.md) and it is checked by a
+test, so it cannot drift away from the model.
 
 ## Why five crates
 
@@ -122,7 +132,7 @@ use regie_intent::IntentModel;
 
 let model = IntentModel::embedded();
 
-match model.interpret("validar um CPF") {
+match model.interpret("validate a CPF") {
     IntentSpec::Confident(spec) => {
         let re = regie_core::Regex::from_spec(&spec).expect("the specification compiles");
         assert!(re.is_match(b"123.456.789-09"));
@@ -141,7 +151,7 @@ use regie_search::{search, Examples};
 
 let positives = ["123.456.789-09"];
 let negatives = ["123.456.789"];
-let report = search("validar CPF", Examples::new(&positives, &negatives));
+let report = search("validate a CPF", Examples::new(&positives, &negatives));
 
 assert!(report.is_confident());
 ```
@@ -214,11 +224,11 @@ match: 6..18 "ana@corp.com"
 group 1: 6..9 "ana"
 group 2: 10..18 "corp.com"
 
-$ regie intent 'validar CPF'
+$ regie intent 'validate a CPF'
 summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 {"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
 
-$ regie search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789'
+$ regie search 'validate a CPF' --positive '123.456.789-09' --negative '123.456.789'
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
@@ -238,8 +248,8 @@ goes through the intent layer, the specification goes through the compiler, and
 the engine runs the automaton over the haystack:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- show 'extrair o email' --input 'mail ana@corp.com now'
-request: extrair o email
+$ cargo run -p regie-cli --bin regie -- show 'extract the email' --input 'mail ana@corp.com now'
+request: extract the email
 intent: confident extract emails boundary=greedy capture=whole
 haystack: mail ana@corp.com now
      ^^^^^^^^^^^^ matched 5..17
@@ -292,6 +302,8 @@ covers all of them plus the host platforms.
   why it is built this way.
 * [docs/SYNTAX.md](docs/SYNTAX.md) — the complete dialect, with a catalogue of
   what it accepts and what it refuses.
+* [docs/LANGUAGES.md](docs/LANGUAGES.md) — the languages a request can be
+  written in, and what happens to one that is not.
 * [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — the measured numbers, and the
   comparison with `regex-automata`.
 * [docs/EVOLUTION.md](docs/EVOLUTION.md) — what comes next, and what is
@@ -303,9 +315,10 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 201 unit, integration and documentation tests |
+| `cargo test --workspace` | 207 unit, integration and documentation tests |
 | `tools/differential_test.py` | 24,589 cases against Python's `re` |
 | `tools/check_examples.py` | every output quoted in the documentation |
+| `tools/measure_languages.py` | the phrasings of the corpus per family and per language |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
 | `fuzz/` | two fuzz targets: the parser and the compiler |
 | `cargo bench` | the Criterion suite of `regie-core` |

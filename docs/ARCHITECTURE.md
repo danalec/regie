@@ -184,6 +184,25 @@ dataset, 95.8% of the requests are resolved confidently and 100% get the
 right class — the remaining 4.2% are refused rather than guessed, which is
 the intended behaviour.
 
+### The languages
+
+The model understands a request written in English or in Brazilian Portuguese,
+and in no other language. The corpus carries both, so every one of the 43
+families has phrasings in the two of them, and the same request in either
+reaches the same family.
+
+A request in a language that is not supported comes back as an ambiguity,
+which is the honest answer: the model did not understand it. The one
+exception is a request that carries nothing but the acronym of a family —
+`CPF`, `CNPJ` — because the acronym is the same in every language and the
+model keys on it rather than on the sentence around it. That is not support
+for another language, and the list in [LANGUAGES.md](LANGUAGES.md) says so.
+
+The list is a claim that is checked rather than believed:
+`crates/regie-intent/tests/languages.rs` runs the same intent in both
+languages and checks that the two agree, and checks that requests in
+unsupported languages come back ambiguous.
+
 ## The verified search
 
 `regie-search` closes the loop between a request and the examples the user
@@ -241,7 +260,7 @@ are:
 The engine is tested at four levels, and the levels answer different
 questions:
 
-1. **Unit and integration tests** pin the behaviour: 201 tests across the
+1. **Unit and integration tests** pin the behaviour: 207 tests across the
    workspace, covering the matcher, the parser, the compiler, the automaton,
    the model, the search, the codec and the command line.
 2. **A differential test** compares the engine against Python's `re` on

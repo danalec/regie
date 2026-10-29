@@ -202,6 +202,9 @@ jobs:
       - name: Check the documented outputs
         run: python tools/check_examples.py
 
+      - name: Count the phrasings of the corpus per language
+        run: python tools/measure_languages.py
+
   # ---------------------------------------------------------------------------
   # Coverage of the core engine.
   # ---------------------------------------------------------------------------
