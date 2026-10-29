@@ -17,7 +17,7 @@ use regie_search::{search, Examples};
 
 let positives = ["123.456.789-09"];
 let negatives = ["1234567890a"];
-let report = search("validar CPF", Examples { positive: &positives, negative: &negatives });
+let report = search("validate a CPF", Examples { positive: &positives, negative: &negatives });
 
 match report.outcome {
     IntentSpec::Confident(CandidateSpec::Validate { kind, .. }) => {
@@ -84,13 +84,20 @@ no family accepts, where the search refuses to settle instead of guessing.
 
 ```console
 $ cargo run -p regie-search --example discriminate
-request: "extrair o texto" - bracketed
+request: "extract the bracketed text" - bracketed
   positives: ["[42]", "[valor]"]
   negatives: ["abc", "42"]
   explored: 24, rejected: 18
   outcome: confident extract between_delimiters (Greedy, Group)
   ...
 ```
+
+## The language of the request
+
+The request is understood in English and in Brazilian Portuguese, and in no
+other language.  The examples of this crate are in English, because the
+documentation of the project is; the list of languages is in
+[`docs/LANGUAGES.md`](../../docs/LANGUAGES.md).
 
 ## Features
 

@@ -23,19 +23,19 @@ fn main() {
     let cases: [(&str, &str, &[&str], &[&str]); 3] = [
         (
             "no candidate accepts the positive sample",
-            "validar um CPF",
+            "validate a CPF",
             &["zzz"],
             &["123.456.789-09"],
         ),
         (
             "the same value is demanded to match and to be refused",
-            "validar um CPF",
+            "validate a CPF",
             &["123.456.789-09"],
             &["123.456.789-09"],
         ),
         (
             "two families accept the positive sample",
-            "extrair o texto",
+            "extract the bracketed text",
             &["[42]"],
             &["abc"],
         ),

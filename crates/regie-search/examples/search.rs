@@ -19,7 +19,7 @@ fn main() {
     // A request the intent model understands, with examples that pin it down.
     let positives = ["123.456.789-09", "987.654.321-00"];
     let negatives = ["123.456.789", "not a cpf at all"];
-    report("validar um CPF", &positives, &negatives);
+    report("validate a CPF", &positives, &negatives);
 
     // A request with a single example: several families could fit it.
     let positives = ["123-45"];
@@ -29,7 +29,7 @@ fn main() {
     // A request whose examples no candidate can satisfy: the search refuses.
     let positives = ["this is not a cpf"];
     let negatives = ["123.456.789-09"];
-    report("validar um CPF", &positives, &negatives);
+    report("validate a CPF", &positives, &negatives);
 }
 
 /// Runs one search and prints what it settled on.

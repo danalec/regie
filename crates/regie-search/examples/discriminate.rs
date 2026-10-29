@@ -15,7 +15,7 @@ use regie_core::Regex;
 use regie_search::{search, Examples, SearchReport};
 
 fn main() {
-    let request = "extrair o texto";
+    let request = "extract the bracketed text";
 
     // Two example sets for the same request: one that says the value sits
     // between delimiters, one that says the value is a bare number.

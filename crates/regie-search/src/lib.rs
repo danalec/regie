@@ -45,7 +45,7 @@
 //!
 //! let positives = ["123.456.789-09"];
 //! let negatives = ["1234567890a"];
-//! let report = search("validar CPF", Examples { positive: &positives, negative: &negatives });
+//! let report = search("validate a CPF", Examples { positive: &positives, negative: &negatives });
 //!
 //! match report.outcome {
 //!     IntentSpec::Confident(CandidateSpec::Validate { kind, .. }) => {
@@ -172,7 +172,7 @@ impl SearchReport {
 ///
 /// let positives = ["123.456.789-09"];
 /// let negatives = ["1234567890a"];
-/// let report = search("validar CPF", Examples::new(&positives, &negatives));
+/// let report = search("validate a CPF", Examples::new(&positives, &negatives));
 /// assert!(matches!(report.outcome, IntentSpec::Confident(_)));
 /// ```
 pub fn search(request: &str, examples: Examples<'_>) -> SearchReport {
@@ -196,7 +196,7 @@ pub fn search(request: &str, examples: Examples<'_>) -> SearchReport {
 ///
 /// let positives = ["123.456.789-09"];
 /// let negatives = ["1234567890a"];
-/// let report = search_flat("validar CPF", Examples::new(&positives, &negatives));
+/// let report = search_flat("validate a CPF", Examples::new(&positives, &negatives));
 /// assert!(report.is_confident());
 /// ```
 pub fn search_flat(request: &str, examples: Examples<'_>) -> SearchReport {

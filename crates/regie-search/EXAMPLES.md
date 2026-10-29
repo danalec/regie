@@ -37,7 +37,7 @@ Run it:
 
 ```console
 $ cargo run -p regie-search --example search
-request: "validar um CPF"
+request: "validate a CPF"
   positives: ["123.456.789-09", "987.654.321-00"]
   negatives: ["123.456.789", "not a cpf at all"]
   explored: 64, rejected: 52
@@ -57,15 +57,15 @@ request: "validate something"
   rank 3: brazilian_cpf score=0 positives=0/1 negatives_rejected=0/0
   rank 4: brazilian_cnpj score=0 positives=0/1 negatives_rejected=0/0
 
-request: "validar um CPF"
+request: "validate a CPF"
   positives: ["this is not a cpf"]
   negatives: ["123.456.789-09"]
-  explored: 64, rejected: 58
-  outcome: confident custom
-  rank 1: custom score=1100 positives=1/1 negatives_rejected=1/1
-  rank 2: custom score=1100 positives=1/1 negatives_rejected=1/1
-  rank 3: custom score=1100 positives=1/1 negatives_rejected=1/1
-  rank 4: custom score=1100 positives=1/1 negatives_rejected=1/1
+  explored: 64, rejected: 64
+  outcome: ambiguous (InconsistentExamples)
+  rank 1: iso_date_time score=100 positives=0/1 negatives_rejected=1/1
+  rank 2: iso_date score=100 positives=0/1 negatives_rejected=1/1
+  rank 3: currency_amount score=100 positives=0/1 negatives_rejected=1/1
+  rank 4: brazilian_cpf score=100 positives=0/1 negatives_rejected=1/1
 ```
 
 Source: [`crates/regie-search/examples/search.rs`](examples/search.rs)
@@ -79,7 +79,7 @@ Run it:
 
 ```console
 $ cargo run -p regie-search --example discriminate
-request: "extrair o texto" - bracketed
+request: "extract the bracketed text" - bracketed
   positives: ["[42]", "[valor]"]
   negatives: ["abc", "42"]
   explored: 24, rejected: 18
@@ -95,7 +95,7 @@ request: "extrair o texto" - bracketed
     "abc" -> no match
     "42" -> no match
 
-request: "extrair o texto" - a bare number
+request: "extract the bracketed text" - a bare number
   positives: ["42", "7"]
   negatives: ["abc", "xyz"]
   explored: 24, rejected: 18
@@ -123,19 +123,19 @@ Run it:
 
 ```console
 $ cargo run -p regie-search --example refusal
-request: "validar um CPF" - no candidate accepts the positive sample
+request: "validate a CPF" - no candidate accepts the positive sample
   positives: ["zzz"]
   negatives: ["123.456.789-09"]
   explored: 64, rejected: 64
   outcome: ambiguous (InconsistentExamples)
   suggestions: (none)
   ranking:
-    1. custom score=100 positives=0/1 negatives=1/1
-    2. validate currency_amount (Standard) score=100 positives=0/1 negatives=1/1
-    3. validate brazilian_cpf (Lenient) score=100 positives=0/1 negatives=1/1
-    4. custom score=100 positives=0/1 negatives=1/1
+    1. validate iso_date_time (Standard) score=100 positives=0/1 negatives=1/1
+    2. validate iso_date (Standard) score=100 positives=0/1 negatives=1/1
+    3. validate currency_amount (Standard) score=100 positives=0/1 negatives=1/1
+    4. validate brazilian_cpf (Lenient) score=100 positives=0/1 negatives=1/1
 
-request: "validar um CPF" - the same value is demanded to match and to be refused
+request: "validate a CPF" - the same value is demanded to match and to be refused
   positives: ["123.456.789-09"]
   negatives: ["123.456.789-09"]
   explored: 64, rejected: 64
@@ -143,23 +143,23 @@ request: "validar um CPF" - the same value is demanded to match and to be refuse
   suggestions: (none)
   ranking:
     1. validate brazilian_cpf (Standard) score=1000 positives=1/1 negatives=0/1
-    2. validate semver (Standard) score=1000 positives=1/1 negatives=0/1
-    3. validate brazilian_cpf (Strict) score=1000 positives=1/1 negatives=0/1
+    2. validate brazilian_cpf (Strict) score=1000 positives=1/1 negatives=0/1
+    3. validate brazilian_cpf (Standard) score=1000 positives=1/1 negatives=0/1
     4. validate brazilian_cpf (Standard) score=1000 positives=1/1 negatives=0/1
 
-request: "extrair o texto" - two families accept the positive sample
+request: "extract the bracketed text" - two families accept the positive sample
   positives: ["[42]"]
   negatives: ["abc"]
   explored: 24, rejected: 12
   outcome: ambiguous (ConflictingKinds)
   suggestions:
-    extract between_delimiters (Greedy, Group)
     extract numbers (Greedy, Whole)
+    extract between_delimiters (Greedy, Group)
   ranking:
-    1. extract between_delimiters (Greedy, Group) score=1100 positives=1/1 negatives=1/1
-    2. extract numbers (Greedy, Whole) score=1100 positives=1/1 negatives=1/1
-    3. extract between_delimiters (Lazy, Group) score=1100 positives=1/1 negatives=1/1
-    4. extract between_delimiters (Exclusive, Group) score=1100 positives=1/1 negatives=1/1
+    1. extract numbers (Greedy, Whole) score=1100 positives=1/1 negatives=1/1
+    2. extract between_delimiters (Greedy, Group) score=1100 positives=1/1 negatives=1/1
+    3. extract numbers (Lazy, Whole) score=1100 positives=1/1 negatives=1/1
+    4. extract numbers (Exclusive, Whole) score=1100 positives=1/1 negatives=1/1
 ```
 
 Source: [`crates/regie-search/examples/refusal.rs`](examples/refusal.rs)
@@ -167,21 +167,21 @@ Source: [`crates/regie-search/examples/refusal.rs`](examples/refusal.rs)
 ## `hard_discrimination`
 
 What it shows: example sets that separate families that look alike, and the
-proof that the **examples** decide, not the model.  A request like "validar
-CPF" or "extrair o texto" leaves several families open, and the examples are
-what tell them apart: only a candidate that matches every positive example and
-refuses every negative one survives.  The same request with the examples the
-other way round gives a different answer - and when no candidate fits the
-examples, the search refuses to settle and says why, rather than guessing.
-The last case is a contradiction: one CPF is demanded to match and another
-CPF is demanded to be refused, so the family that accepts the first accepts
-the second as well.
+proof that the **examples** decide, not the model.  A request like "validate
+a CPF" or "extract the bracketed text" leaves several families open, and the
+examples are what tell them apart: only a candidate that matches every
+positive example and refuses every negative one survives.  The same request
+with the examples the other way round gives a different answer - and when no
+candidate fits the examples, the search refuses to settle and says why, rather
+than guessing.  The last case is a contradiction: one CPF is demanded to
+match and another CPF is demanded to be refused, so the family that accepts
+the first accepts the second as well.
 
 Run it:
 
 ```console
 $ cargo run -p regie-search --example hard_discrimination
-request: "validar CPF" - the CPF family against the ones that look like it
+request: "validate a CPF" - the CPF family against the ones that look like it
   positives: ["123.456.789-09", "987.654.321-00"]
   negatives: ["12.345.678/0001-95", "+55 11 91234-5678", "12345"]
   explored: 64, rejected: 52
@@ -199,7 +199,7 @@ request: "validar CPF" - the CPF family against the ones that look like it
     "+55 11 91234-5678" -> no match
     "12345" -> no match
 
-request: "validar data" - the ISO shape of a date
+request: "validate a date" - the ISO shape of a date
   positives: ["2026-10-29", "1999-01-31"]
   negatives: ["29/10/2026", "31/01/1999"]
   explored: 64, rejected: 46
@@ -216,7 +216,7 @@ request: "validar data" - the ISO shape of a date
     "29/10/2026" -> no match
     "31/01/1999" -> no match
 
-request: "validar data" - the Brazilian shape of a date, which no family accepts
+request: "validate a date" - the Brazilian shape of a date, which no family accepts
   positives: ["29/10/2026", "31/01/1999"]
   negatives: ["2026-10-29", "1999-01-31"]
   explored: 64, rejected: 64
@@ -224,8 +224,8 @@ request: "validar data" - the Brazilian shape of a date, which no family accepts
   suggestions: (none)
   ranking:
     1. validate iso_date_time (Standard) score=200 positives=0/2 negatives=2/2
-    2. validate url (Standard) score=200 positives=0/2 negatives=2/2
-    3. validate uri (Standard) score=200 positives=0/2 negatives=2/2
+    2. validate currency_amount (Standard) score=200 positives=0/2 negatives=2/2
+    3. validate semver (Standard) score=200 positives=0/2 negatives=2/2
     4. validate iso_date_time (Strict) score=200 positives=0/2 negatives=2/2
   proof:
     no winner, the best candidate is validate iso_date_time (Standard)
@@ -234,7 +234,7 @@ request: "validar data" - the Brazilian shape of a date, which no family accepts
     "2026-10-29" -> no match
     "1999-01-31" -> no match
 
-request: "extrair o texto" - a quoted value against a bracketed one
+request: "extract the bracketed text" - a quoted value against a bracketed one
   positives: ["\"value\"", "\"outro\""]
   negatives: ["[value]", "[outro]"]
   explored: 24, rejected: 18
@@ -251,7 +251,7 @@ request: "extrair o texto" - a quoted value against a bracketed one
     "[value]" -> no match
     "[outro]" -> no match
 
-request: "validar CPF" - two CPFs, one demanded to match and the other to be refused
+request: "validate a CPF" - two CPFs, one demanded to match and the other to be refused
   positives: ["123.456.789-09"]
   negatives: ["987.654.321-00"]
   explored: 64, rejected: 64
@@ -266,7 +266,6 @@ request: "validar CPF" - two CPFs, one demanded to match and the other to be ref
     no winner, the best candidate is validate brazilian_cpf (Standard)
     "123.456.789-09" -> match
     "987.654.321-00" -> match
-
 ```
 
 Source: [`crates/regie-search/examples/hard_discrimination.rs`](examples/hard_discrimination.rs)

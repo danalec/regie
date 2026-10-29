@@ -6,10 +6,10 @@
 //! cargo run -p regie-search --example hard_discrimination
 //! ```
 //!
-//! The examples decide, not the model.  A request like "validar CPF" or
-//! "extrair o texto" names a shape that several families share, and the
-//! examples are what tell them apart: only a candidate that matches every
-//! positive example and refuses every negative one survives.  When no
+//! The examples decide, not the model.  A request like "validate a CPF" or
+//! "extract the bracketed text" names a shape that several families share,
+//! and the examples are what tell them apart: only a candidate that matches
+//! every positive example and refuses every negative one survives.  When no
 //! candidate survives, the search says so instead of guessing.
 
 use regie_core::spec::{self, CandidateSpec, IntentSpec};
@@ -21,31 +21,31 @@ fn main() {
     let cases: [(&str, &str, &[&str], &[&str]); 5] = [
         (
             "the CPF family against the ones that look like it",
-            "validar CPF",
+            "validate a CPF",
             &["123.456.789-09", "987.654.321-00"],
             &["12.345.678/0001-95", "+55 11 91234-5678", "12345"],
         ),
         (
             "the ISO shape of a date",
-            "validar data",
+            "validate a date",
             &["2026-10-29", "1999-01-31"],
             &["29/10/2026", "31/01/1999"],
         ),
         (
             "the Brazilian shape of a date, which no family accepts",
-            "validar data",
+            "validate a date",
             &["29/10/2026", "31/01/1999"],
             &["2026-10-29", "1999-01-31"],
         ),
         (
             "a quoted value against a bracketed one",
-            "extrair o texto",
+            "extract the bracketed text",
             &["\"value\"", "\"outro\""],
             &["[value]", "[outro]"],
         ),
         (
             "two CPFs, one demanded to match and the other to be refused",
-            "validar CPF",
+            "validate a CPF",
             &["123.456.789-09"],
             &["987.654.321-00"],
         ),

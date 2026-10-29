@@ -27,7 +27,7 @@ fn a_dotted_cpf_is_confident() {
     let positives = ["123.456.789-09"];
     let negatives = ["1234567890a"];
     let report = search(
-        "validar CPF",
+        "validate a CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -50,7 +50,7 @@ fn the_survivor_keeps_the_strictness_of_the_model() {
     let positives = ["123.456.789-09"];
     let negatives = ["1234567890a"];
     let report = search(
-        "validar CPF",
+        "validate a CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -76,7 +76,7 @@ fn contradictory_examples_are_ambiguous() {
     let positives = ["123.456.789-09"];
     let negatives = ["123.456.789-09"];
     let report = search(
-        "validar CPF",
+        "validate a CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -101,7 +101,7 @@ fn unsatisfiable_examples_are_ambiguous() {
     let positives = ["123.456.789-09", "not a cpf at all"];
     let negatives = ["1234567890a"];
     let report = search(
-        "validar CPF",
+        "validate a CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -123,7 +123,7 @@ fn two_families_are_a_conflict() {
     let positives = ["123.456.789-09"];
     let negatives = ["1234567890a"];
     let report = search(
-        "validar um CPF",
+        "validate the CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -154,7 +154,7 @@ fn two_families_are_a_conflict() {
 #[test]
 fn no_examples_returns_the_model_ranking() {
     let report = search(
-        "validar CPF",
+        "validate a CPF",
         Examples {
             positive: &[],
             negative: &[],
@@ -163,8 +163,11 @@ fn no_examples_returns_the_model_ranking() {
     let model = IntentModel::embedded();
 
     assert!(report.is_confident());
-    assert_eq!(report.outcome, model.interpret("validar CPF"));
-    assert_eq!(report.ranked.len(), model.candidates("validar CPF").len());
+    assert_eq!(report.outcome, model.interpret("validate a CPF"));
+    assert_eq!(
+        report.ranked.len(),
+        model.candidates("validate a CPF").len()
+    );
 }
 
 /// A request the model does not understand stays ambiguous.
@@ -190,8 +193,8 @@ fn the_search_is_deterministic() {
         negative: &negatives,
     };
 
-    let first = search("validar CPF", examples);
-    let second = search("validar CPF", examples);
+    let first = search("validate a CPF", examples);
+    let second = search("validate a CPF", examples);
     assert_eq!(first, second);
     assert_eq!(first.outcome, second.outcome);
     assert_eq!(first.ranked, second.ranked);
@@ -273,20 +276,24 @@ fn an_explicit_list_is_explored() {
 #[test]
 fn the_tree_search_agrees_with_the_flat_search() {
     let cases: [(&str, &[&str], &[&str]); 7] = [
-        ("validar CPF", &["123.456.789-09"], &["1234567890a"]),
-        ("validar um CPF", &["123.456.789-09"], &["1234567890a"]),
-        ("extrair o texto entre colchetes", &["[abc]"], &["abc"]),
+        ("validate a CPF", &["123.456.789-09"], &["1234567890a"]),
+        ("validate the CPF", &["123.456.789-09"], &["1234567890a"]),
+        ("extract the text between brackets", &["[abc]"], &["abc"]),
         (
-            "bloquear as palavras spam e phishing",
+            "block the words spam and phishing",
             &["please drop the spam"],
             &["hello world"],
         ),
         (
-            "criar um padrão de 6 caracteres alfanuméricos",
+            "build a custom pattern of 6 alphanumeric characters",
             &["abc123"],
             &["abcdef"],
         ),
-        ("validar um e-mail", &["ana@corp.com"], &["ana@corp"]),
+        (
+            "validate an email address",
+            &["ana@corp.com"],
+            &["ana@corp"],
+        ),
         ("qwertyuiop zzzz", &["123"], &["456"]),
     ];
 
@@ -374,7 +381,7 @@ fn the_search_stays_inside_its_budget() {
     let positives = ["123.456.789-09"];
     let negatives = ["1234567890a"];
     let report = search(
-        "validar um CPF",
+        "validate a CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -487,7 +494,7 @@ fn the_examples_decide_the_family() {
     let iso_positives = ["2026-10-29", "1999-01-31"];
     let iso_negatives = ["29/10/2026", "31/01/1999"];
     let report = search(
-        "validar data",
+        "validate a date",
         Examples {
             positive: &iso_positives,
             negative: &iso_negatives,
@@ -505,7 +512,7 @@ fn the_examples_decide_the_family() {
     let br_positives = ["29/10/2026", "31/01/1999"];
     let br_negatives = ["2026-10-29", "1999-01-31"];
     let report = search(
-        "validar data",
+        "validate a date",
         Examples {
             positive: &br_positives,
             negative: &br_negatives,
@@ -530,7 +537,7 @@ fn a_shape_no_family_accepts_is_refused() {
     let positives = ["29/10/2026", "31/01/1999"];
     let negatives = ["2026-10-29", "1999-01-31"];
     let report = search(
-        "validar data",
+        "validate a date",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -555,7 +562,7 @@ fn two_values_of_one_family_cannot_be_split() {
     let positives = ["123.456.789-09"];
     let negatives = ["987.654.321-00"];
     let report = search(
-        "validar CPF",
+        "validate a CPF",
         Examples {
             positive: &positives,
             negative: &negatives,
@@ -585,7 +592,7 @@ fn the_quoting_of_the_examples_picks_the_family() {
     let positives = ["\"value\"", "\"outro\""];
     let negatives = ["[value]", "[outro]"];
     let report = search(
-        "extrair o texto",
+        "extract the bracketed text",
         Examples {
             positive: &positives,
             negative: &negatives,
