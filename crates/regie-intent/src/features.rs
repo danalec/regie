@@ -132,8 +132,8 @@ impl Features {
 /// Folds one character to a lowercase ASCII letter or digit.
 ///
 /// Every other character returns `None` and becomes a token separator.  The
-/// accented Latin letters are folded to their base letter, so that "validação"
-/// and "validacao" produce the same tokens.
+/// accented Latin letters are folded to their base letter, so that "café"
+/// and "cafe" produce the same tokens.
 fn fold(ch: char) -> Option<u8> {
     match ch {
         'A'..='Z' => Some(ch as u8 + 32),

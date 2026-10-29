@@ -6,13 +6,21 @@
 //!
 //! ## What it does
 //!
-//! The model answers questions like "validar um CPF", "extrair números
-//! entre colchetes" or "bloquear as palavras spam e phishing" with one of
+//! The model answers questions like "validate a CPF", "extract the numbers
+//! between brackets" or "block the words spam and phishing" with one of
 //! the enumerated [`CandidateSpec`](regie_core::spec::CandidateSpec) values:
 //! a validation family, an extraction family, a filter or a custom template.
 //! It never produces pattern text.  The deterministic compiler in
 //! `regie-core` turns the specification into an automaton, so a model can
 //! never smuggle arbitrary syntax into the engine.
+//!
+//! ## The languages it understands
+//!
+//! A request is understood in **English** or in **Brazilian Portuguese**, and
+//! in no other language.  The same request in either of the two reaches the
+//! same family; a request in a language that is not supported comes back as
+//! an ambiguity, which is the honest answer.  The list is written down in
+//! `docs/LANGUAGES.md` of the repository, and it is checked by a test.
 //!
 //! ## How it works
 //!
@@ -47,7 +55,7 @@
 //!
 //! let model = IntentModel::embedded();
 //!
-//! let spec = model.interpret("validar um CPF");
+//! let spec = model.interpret("validate a CPF");
 //! assert!(spec.is_confident());
 //!
 //! // A request the model does not understand is refused, not guessed.

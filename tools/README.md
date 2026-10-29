@@ -8,6 +8,7 @@ library only: no numpy, no pandas, no network access.
 | [`train_intent.py`](train_intent.py) | trains the intent micro-model and writes the quantized weights into the crate |
 | [`differential_test.py`](differential_test.py) | compares the engine against Python's `re` on tens of thousands of cases |
 | [`check_examples.py`](check_examples.py) | runs every output that the documentation quotes and compares it with what is written down |
+| [`measure_languages.py`](measure_languages.py) | counts the phrasings of the corpus per family and per language |
 | [`add_serde_derives.py`](add_serde_derives.py) | adds the serde derives to the specification types |
 
 ## The trainer
@@ -121,3 +122,18 @@ never leaves anything behind in the repository.
 specification types of `regie-core`.  It is a one-off maintenance script: run
 it when a new type has to be serializable, and check the diff before
 committing it.
+
+## The language measurement
+
+```
+python tools/measure_languages.py
+```
+
+The corpus is rendered from templates, so the language of a record is known
+from the template it came from: the Portuguese templates render over the
+Portuguese nouns and the English templates over the English ones.  The script
+counts what each family would render in each language, which is where the
+numbers of [`docs/LANGUAGES.md`](../docs/LANGUAGES.md) come from.
+
+It fails when a family has no phrasing in one of the two languages, because
+that family would not really be supported in that language.

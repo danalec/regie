@@ -43,7 +43,7 @@ const MAX_SUGGESTIONS: usize = 3;
 /// use regie_intent::IntentModel;
 ///
 /// let model = IntentModel::embedded();
-/// let spec = model.interpret("validar um CPF");
+/// let spec = model.interpret("validate a CPF");
 /// assert!(spec.is_confident());
 /// ```
 #[derive(Clone, Copy, Debug)]
