@@ -6,148 +6,640 @@
 <title>regie - the live view</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #171a21;
-    --line: #262b36;
-    --text: #e6e9ef;
-    --muted: #939cad;
+    --bg: #0b0e14;
+    --panel: #0f131b;
+    --panel-2: #131823;
+    --line: #1e2530;
+    --line-soft: #171d26;
+    --text: #d9dee9;
+    --text-strong: #f2f5fa;
+    --muted: #79839a;
+    --faint: #4a5468;
     --accent: #7ee787;
     --accent-dim: #2b6b32;
+    --accent-glow: rgba(126, 231, 135, .12);
     --warn: #f0b429;
-    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --err: #f85149;
+    --sel: #1a2333;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, monospace;
+    --ui: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 13px/1.5 var(--ui);
+    overflow: hidden;
   }
-  header {
-    padding: 22px 28px 18px;
-    border-bottom: 1px solid var(--line);
+
+  /* ---------- the frame ---------- */
+
+  .frame {
+    display: grid;
+    grid-template-columns: 46px 250px 1fr;
+    grid-template-rows: 38px 1fr 24px;
+    grid-template-areas:
+      "title  title  title"
+      "rail   side   work"
+      "status status status";
+    height: 100vh;
+  }
+
+  /* ---------- the title bar ---------- */
+
+  .titlebar {
+    grid-area: title;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 14px;
-    flex-wrap: wrap;
+    padding: 0 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    user-select: none;
   }
-  h1 { font-size: 19px; margin: 0; letter-spacing: .2px; }
-  h1 span { color: var(--accent); }
-  header p { margin: 0; color: var(--muted); font-size: 13px; }
-  main { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 22px; padding: 22px 28px 40px; align-items: start; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
-  .card + .card { margin-top: 18px; }
-  label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 8px; }
-  textarea, input[type=text] {
-    width: 100%; background: #0c0e13; color: var(--text);
-    border: 1px solid var(--line); border-radius: 7px;
-    padding: 10px 12px; font-family: var(--mono); font-size: 13.5px; resize: vertical;
+  .lights { display: flex; gap: 7px; }
+  .lights i { width: 10px; height: 10px; border-radius: 50%; background: #2b3240; display: block; }
+  .lights i:first-child { background: #3b2b30; }
+  .brand { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .brand b { color: var(--accent); font-weight: 600; }
+  .tabs { display: flex; gap: 6px; margin-left: 6px; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .tabs b { color: var(--muted); font-weight: 400; }
+  .tabs span { color: var(--faint); }
+  .tabs .crumb { color: var(--faint); }
+  .titlebar .spacer { flex: 1; }
+  .titlebar .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 9px;
   }
-  textarea:focus, input[type=text]:focus { outline: none; border-color: var(--accent-dim); }
-  #haystack { min-height: 190px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .chip {
-    border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
-    font-size: 12px; color: var(--muted); cursor: pointer; background: #0c0e13;
+  .titlebar .badge b { color: var(--accent); font-weight: 600; }
+
+  /* ---------- the activity rail ---------- */
+
+  .rail {
+    grid-area: rail;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+    gap: 4px;
   }
-  .chip:hover { color: var(--text); border-color: var(--accent-dim); }
-  .verdict { display: flex; align-items: center; gap: 9px; font-size: 13px; margin-bottom: 12px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
-  .dot.ok { background: var(--accent); }
+  .rail button {
+    width: 34px; height: 34px;
+    border: none;
+    background: none;
+    color: var(--faint);
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+  .rail button:hover { color: var(--text); background: var(--panel-2); }
+  .rail button.on { color: var(--accent); background: var(--accent-glow); }
+
+  /* ---------- the sidebar ---------- */
+
+  .side {
+    grid-area: side;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    overflow: auto;
+    padding-bottom: 16px;
+  }
+  .side h2 {
+    margin: 0;
+    padding: 9px 12px 7px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .side h2 em { font-style: normal; color: var(--faint); font-weight: 400; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+
+  .tree { list-style: none; margin: 0; padding: 0; }
+  .tree li { border-left: 1px solid var(--line-soft); margin-left: 12px; }
+  .tree li.root { border-left: none; margin-left: 0; }
+  .node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 12px 5px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: default;
+  }
+  .node .glyph { color: var(--faint); width: 12px; text-align: center; }
+  .node.on { color: var(--text-strong); }
+  .node.on .glyph { color: var(--accent); }
+  .node .state { margin-left: auto; font-size: 11px; color: var(--faint); }
+  .node.on .state { color: var(--accent); }
+
+  .files { list-style: none; margin: 0; padding: 0; }
+  .files button {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 5px 12px 5px 14px;
+    background: none;
+    border: none;
+    text-align: left;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .files button:hover { background: var(--sel); color: var(--text); }
+  .files button.on { background: var(--sel); color: var(--text-strong); }
+  .files .name { flex: 1; min-width: 0; }
+  .files .kind {
+    flex: none;
+    width: 78px;
+    text-align: right;
+    font-size: 10px;
+    color: var(--faint);
+    font-family: var(--ui);
+    padding-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .side section { display: none; }
+  .side section.on { display: block; }
+  .about { padding: 4px 12px 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .about p { margin: 0 0 10px; }
+  .about code { font-family: var(--mono); font-size: 11.5px; color: var(--text); }
+  .about .langs { list-style: none; margin: 0; padding: 0; font-family: var(--mono); font-size: 12px; }
+  .about .langs li { display: flex; gap: 8px; padding: 3px 0; }
+  .about .langs b { color: var(--accent); font-weight: 500; }
+  .about .langs .no { color: var(--faint); }
+
+  /* ---------- the workspace ---------- */
+
+  .work {
+    grid-area: work;
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) 430px;
+    min-width: 0;
+  }
+  @media (max-width: 1100px) {
+    .frame { grid-template-columns: 46px 210px 1fr; }
+    .work { grid-template-columns: 1fr 360px; }
+  }
+  @media (max-width: 880px) {
+    body { overflow: auto; }
+    .frame { grid-template-columns: 46px 1fr; grid-template-areas: "title title" "rail work" "status status"; }
+    .side { display: none; }
+    .work { grid-template-columns: 1fr; }
+  }
+
+  .editors {
+    display: grid;
+    grid-template-rows: auto minmax(150px, 1fr) 186px;
+    min-width: 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .pane { display: flex; flex-direction: column; min-height: 0; }
+  .pane + .pane { border-top: 1px solid var(--line); }
+  .pane-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 12px;
+    height: 31px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    user-select: none;
+    flex: none;
+  }
+  .pane-head .tag {
+    width: 6px; height: 6px; border-radius: 2px;
+    background: var(--faint);
+  }
+  .pane-head .tag.on { background: var(--accent); }
+  .pane-head .right { margin-left: auto; text-transform: none; letter-spacing: 0; color: var(--faint); }
+
+  /* the console, at the bottom of the editors */
+  .console {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 8px 14px 12px;
+    overflow: auto;
+    background: var(--bg);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .console .cmd { color: var(--accent); }
+  .console .res { color: var(--muted); }
+  .console .hit { color: var(--text-strong); }
+  .console .miss { color: var(--warn); }
+
+  /* an editor: a gutter with the line numbers and the text next to it */
+  .editor { display: flex; min-height: 0; flex: 1; background: var(--bg); }
+  .gutter {
+    flex: none;
+    width: 46px;
+    padding: 10px 8px 10px 0;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: var(--faint);
+    background: var(--bg);
+    border-right: 1px solid var(--line-soft);
+    overflow: hidden;
+    user-select: none;
+  }
+  .gutter b { display: block; font-weight: 400; }
+  .gutter b.hit { color: var(--accent); }
+  .editor textarea, .editor input[type=text] {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.75;
+    tab-size: 2;
+  }
+  .editor textarea { height: 100%; }
+  .editor input[type=text] { padding-top: 10px; }
+  .editor textarea:focus, .editor input[type=text]:focus { background: #0d1118; }
+
+  /* ---------- the inspector ---------- */
+
+  .inspector { display: flex; flex-direction: column; min-width: 0; background: var(--panel); }
+  .tabs2 { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .tabs2 button {
+    flex: 1;
+    padding: 9px 6px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .tabs2 button:hover { color: var(--text); }
+  .tabs2 button.on { color: var(--accent); border-bottom-color: var(--accent); }
+  .panes { flex: 1; overflow: auto; padding: 14px 16px 24px; min-height: 0; }
+  .pane-view { display: none; }
+  .pane-view.on { display: block; }
+
+  .verdict { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 12.5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
   .dot.amb { background: var(--warn); }
-  .dot.err { background: #f85149; }
-  .spec { font-family: var(--mono); font-size: 12.5px; color: var(--muted); word-break: break-word; }
-  .hay { font-family: var(--mono); font-size: 14px; white-space: pre-wrap; word-break: break-word; margin: 0; line-height: 1.7; }
-  mark { background: var(--accent-dim); color: #f0fff4; border-radius: 3px; padding: 1px 2px; }
-  .none { color: #f85149; }
-  .groups { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
-  .groups table { border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; width: 100%; }
-  .groups td { padding: 3px 10px 3px 0; color: var(--muted); vertical-align: top; }
-  .groups td:first-child { color: var(--text); width: 34px; }
-  .groups td:last-child { color: var(--accent); }
-  .hint { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
-  .layers { margin-top: 18px; font-size: 12.5px; color: var(--muted); }
-  .layers div { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
-  .layers b { color: var(--text); font-weight: 600; min-width: 108px; font-family: var(--mono); font-size: 12px; }
-  .layers span.on { color: var(--accent); }
+  .dot.err { background: var(--err); }
+
+  .kv { margin-top: 14px; display: grid; grid-template-columns: 92px 1fr; gap: 6px 12px; font-family: var(--mono); font-size: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; color: var(--text-strong); word-break: break-word; }
+
+  .hay {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+  }
+  mark { background: var(--accent-dim); color: #f0fff4; border-radius: 2px; padding: 1px 0; }
+
+  table.groups { border-collapse: collapse; font-family: var(--mono); font-size: 12px; width: 100%; margin-top: 4px; }
+  table.groups th {
+    text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: .07em; padding: 0 10px 6px 0; border-bottom: 1px solid var(--line);
+  }
+  table.groups td { padding: 5px 10px 5px 0; color: var(--muted); border-bottom: 1px solid var(--line-soft); }
+  table.groups td.n { color: var(--accent); }
+  table.groups td.v { color: var(--text-strong); }
+
+  .path { list-style: none; margin: 0; padding: 0; }
+  .path li {
+    display: grid;
+    grid-template-columns: 118px 1fr;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .path li b { color: var(--text); font-weight: 500; }
+  .path li span { color: var(--muted); }
+  .path li.on span { color: var(--accent); }
+  .path li.idle span { color: var(--faint); }
+
+  .note {
+    margin-top: 16px;
+    padding: 10px 12px;
+    border-left: 2px solid var(--accent-dim);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 12px;
+    border-radius: 0 6px 6px 0;
+  }
+  .note.warn { border-left-color: var(--warn); }
+  .note.err { border-left-color: var(--err); }
+
+  .empty { color: var(--faint); font-family: var(--mono); font-size: 12px; padding: 6px 0; }
+
+  /* ---------- the status bar ---------- */
+
+  .status {
+    grid-area: status;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 12px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    user-select: none;
+  }
+  .status .right { margin-left: auto; display: flex; gap: 16px; color: var(--faint); }
+  .status .ok { color: var(--accent); }
+  .status .amb { color: var(--warn); }
+  .status .err { color: var(--err); }
+  .status .dot { width: 7px; height: 7px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>regie <span>&mdash;</span> the live view</h1>
-  <p>Type a request in plain language. The model turns it into a specification, the engine compiles that into an automaton, and the match lights up as you type.</p>
-</header>
+<div class="frame">
 
-<main>
-  <section>
-    <div class="card">
-      <label for="request">The request</label>
-      <input type="text" id="request" value="extract the email" spellcheck="false" autocomplete="off">
-      <div class="chips" id="chips"></div>
-      <div class="hint">The model never writes a pattern. It chooses one value out of a closed enumeration, and the compiler turns that value into an automaton.</div>
-    </div>
+  <header class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="brand"><b>regie</b> - the live view</div>
+    <div class="tabs"><b>regie</b><span>/</span><b>live</b><span>/</span><span class="crumb" id="crumb">request</span></div>
+    <div class="spacer"></div>
+    <div class="badge">model <b>43 classes</b></div>
+  </header>
 
-    <div class="card">
-      <label for="haystack">The haystack</label>
-      <textarea id="haystack" spellcheck="false">the cpf of ana is 123.456.789-09 and her e-mail is ana@corp.com</textarea>
-    </div>
-  </section>
+  <nav class="rail">
+    <button class="on" data-side="pipeline" title="Pipeline">◈</button>
+    <button data-side="examples" title="Examples">⌘</button>
+    <button data-side="about" title="About">⚙</button>
+  </nav>
 
-  <section>
-    <div class="card">
-      <div class="verdict"><span class="dot" id="dot"></span><span id="verdict">waiting</span></div>
-      <div class="spec" id="spec"></div>
-      <p class="hay" id="out"></p>
-      <p class="hint" id="hint"></p>
-      <div class="groups" id="groups"></div>
-      <div class="hint">A validation request checks the whole haystack. An extraction request finds the value inside a sentence.</div>
-    </div>
+  <aside class="side">
+    <section class="on" id="side-pipeline">
+      <h2>Pipeline <em>4 crates</em></h2>
+      <ul class="tree">
+        <li class="root">
+          <div class="node on" id="n-intent"><span class="glyph">◆</span>regie-intent<span class="state" id="s-intent">on</span></div>
+        </li>
+        <li class="root">
+          <div class="node" id="n-search"><span class="glyph">◇</span>regie-search<span class="state" id="s-search">idle</span></div>
+        </li>
+        <li class="root">
+          <div class="node on" id="n-core"><span class="glyph">◆</span>regie-core<span class="state" id="s-core">on</span></div>
+        </li>
+        <li class="root">
+          <div class="node" id="n-codec"><span class="glyph">◇</span>regie-codec<span class="state" id="s-codec">idle</span></div>
+        </li>
+      </ul>
+    </section>
 
-    <div class="card">
-      <label>The path</label>
-      <div class="layers">
-        <div><b>regie-intent</b><span class="on" id="l1">request</span> &rarr; specification</div>
-        <div><b>regie-search</b><span id="l2">no examples</span></div>
-        <div><b>regie-core</b><span class="on" id="l3">Thompson NFA + Pike VM</span></div>
-        <div><b>regie-codec</b><span id="l4">not needed here</span></div>
+    <section id="side-examples">
+      <h2>Examples <em>6</em></h2>
+      <ul class="files" id="files"></ul>
+    </section>
+
+    <section id="side-about">
+      <h2>About</h2>
+      <div class="about">
+        <p>The model never writes a pattern. It chooses one value out of a
+        closed enumeration of <code>43</code> families, and the compiler turns
+        that value into an automaton.</p>
+        <p>A request is understood in two languages, and in no other:</p>
+        <ul class="langs">
+          <li><b>en</b><span>English</span></li>
+          <li><b>pt-BR</b><span>Brazilian Portuguese</span></li>
+          <li class="no"><b>--</b><span>every other language is refused</span></li>
+        </ul>
+        <p>The engine simulates an NFA, so there is no catastrophic
+        backtracking and the worst case is <code>O(m*n)</code>.</p>
+        <p>Control and Enter analyses right away.</p>
       </div>
-    </div>
-  </section>
-</main>
+    </section>
+  </aside>
+
+  <main class="work">
+    <section class="editors">
+      <div class="pane">
+        <div class="pane-head"><span class="tag on" id="tag-request"></span>Request<span class="right" id="head-request"></span></div>
+        <div class="editor">
+          <div class="gutter"><b>1</b></div>
+          <input type="text" id="request" value="extract the email" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-head"><span class="tag on" id="tag-haystack"></span>Haystack<span class="right" id="head-haystack"></span></div>
+        <div class="editor">
+          <div class="gutter" id="gutter"></div>
+          <textarea id="haystack" spellcheck="false">invoice dated 2026-10-29
+the cpf of ana is 123.456.789-09
+and her e-mail is ana@corp.com
+order 48192 shipped to the office</textarea>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-head"><span class="tag on"></span>Console<span class="right" id="head-console">0 analyses</span></div>
+        <div class="console" id="console"></div>
+      </div>
+    </section>
+
+    <section class="inspector">
+      <div class="tabs2">
+        <button class="on" data-tab="spec">Specification</button>
+        <button data-tab="match">Match</button>
+        <button data-tab="groups">Groups</button>
+        <button data-tab="path">Path</button>
+      </div>
+      <div class="panes">
+        <div class="pane-view on" id="v-spec">
+          <div class="verdict"><span class="dot" id="dot"></span><span id="verdict">waiting</span></div>
+          <dl class="kv">
+            <dt>kind</dt><dd id="k-kind">-</dd>
+            <dt>specification</dt><dd id="k-spec">-</dd>
+            <dt>reason</dt><dd id="k-reason">-</dd>
+          </dl>
+          <div class="note" id="k-note"></div>
+        </div>
+
+        <div class="pane-view" id="v-match">
+          <div class="verdict"><span class="dot" id="dot2"></span><span id="verdict2">waiting</span></div>
+          <p class="hay" id="out"></p>
+          <div class="note" id="m-note"></div>
+        </div>
+
+        <div class="pane-view" id="v-groups">
+          <table class="groups">
+            <thead><tr><th>#</th><th>span</th><th>text</th></tr></thead>
+            <tbody id="groups"></tbody>
+          </table>
+          <div class="empty" id="groups-empty">no groups</div>
+        </div>
+
+        <div class="pane-view" id="v-path">
+          <ul class="path">
+            <li id="p-intent"><b>regie-intent</b><span>request -&gt; specification</span></li>
+            <li id="p-search"><b>regie-search</b><span>no examples</span></li>
+            <li id="p-core"><b>regie-core</b><span>Thompson NFA + Pike VM</span></li>
+            <li id="p-codec"><b>regie-codec</b><span>not needed here</span></li>
+          </ul>
+          <div class="note">The model never writes a pattern. It chooses one value out of a closed enumeration, and the compiler turns that value into an automaton. The engine simulates an NFA, so there is no catastrophic backtracking.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="status">
+    <span class="dot" id="s-dot"></span>
+    <span id="s-verdict">waiting</span>
+    <span id="s-spec">-</span>
+    <span class="right">
+      <span id="s-engine">Thompson NFA + Pike VM</span>
+      <span id="s-lang">request: en / pt-BR</span>
+      <span>UTF-8</span>
+    </span>
+  </footer>
+
+</div>
 
 <script>
 const requestField = document.getElementById("request");
 const haystackField = document.getElementById("haystack");
+const gutter = document.getElementById("gutter");
+const files = document.getElementById("files");
+
 const dot = document.getElementById("dot");
+const dot2 = document.getElementById("dot2");
+const sDot = document.getElementById("s-dot");
 const verdict = document.getElementById("verdict");
-const spec = document.getElementById("spec");
+const verdict2 = document.getElementById("verdict2");
+const sVerdict = document.getElementById("s-verdict");
+const spec = document.getElementById("k-spec");
+const kind = document.getElementById("k-kind");
+const reason = document.getElementById("k-reason");
+const kNote = document.getElementById("k-note");
+const mNote = document.getElementById("m-note");
 const out = document.getElementById("out");
-const hint = document.getElementById("hint");
-const groupsBox = document.getElementById("groups");
-const chips = document.getElementById("chips");
+const groupsBody = document.getElementById("groups");
+const groupsEmpty = document.getElementById("groups-empty");
+const consoleBox = document.getElementById("console");
+const headConsole = document.getElementById("head-console");
+const sSpec = document.getElementById("s-spec");
+const headRequest = document.getElementById("head-request");
+const headHaystack = document.getElementById("head-haystack");
+const tagRequest = document.getElementById("tag-request");
+const tagHaystack = document.getElementById("tag-haystack");
 
 const EXAMPLES = [
-  ["extract the email", "mail ana@corp.com now"],
-  ["extract the text between brackets", "the value is [42] here"],
-  ["block messages containing the word spam", "this is spam"],
-  ["validate a CPF", "123.456.789-09"],
-  ["validate an email address", "ana@corp.com"],
-  ["validate an ISO date", "2026-10-29"],
+  ["extract the email", "mail ana@corp.com now", "extract emails"],
+  ["extract the text between brackets", "the value is [42] here", "between delimiters"],
+  ["block messages containing the word spam", "this is spam", "filter"],
+  ["validate a CPF", "123.456.789-09", "validate brazilian_cpf"],
+  ["validate an email address", "ana@corp.com", "validate email"],
+  ["validate an ISO date", "2026-10-29", "validate iso_date"],
 ];
 
-for (const [request, haystack] of EXAMPLES) {
-  const chip = document.createElement("button");
-  chip.className = "chip";
-  chip.type = "button";
-  chip.textContent = request;
-  chip.addEventListener("click", () => {
+// The sidebar lists the examples like the files of a project.
+EXAMPLES.forEach((example, index) => {
+  const [request, haystack, family] = example;
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = request;
+  const label = document.createElement("span");
+  label.className = "kind";
+  label.textContent = family;
+  button.append(name, label);
+  button.addEventListener("click", () => {
     requestField.value = request;
     haystackField.value = haystack;
+    select(index);
     analyse();
   });
-  chips.appendChild(chip);
+  item.appendChild(button);
+  files.appendChild(item);
+});
+
+function select(index) {
+  [...files.querySelectorAll("button")].forEach((button, position) => {
+    button.classList.toggle("on", position === index);
+  });
 }
+
+// The rail switches the panel of the sidebar.
+for (const button of document.querySelectorAll(".rail button")) {
+  button.addEventListener("click", () => {
+    for (const other of document.querySelectorAll(".rail button")) {
+      other.classList.toggle("on", other === button);
+    }
+    for (const section of document.querySelectorAll(".side section")) {
+      section.classList.toggle("on", section.id === "side-" + button.dataset.side);
+    }
+  });
+}
+
+// The gutter carries the line numbers of the haystack, and the line the
+// match sits on is the one that lights up.
+function paintGutter(hitLine) {
+  const lines = haystackField.value.split("\n").length;
+  gutter.innerHTML = "";
+  for (let line = 1; line <= lines; line += 1) {
+    const number = document.createElement("b");
+    number.textContent = line;
+    if (line === hitLine) number.className = "hit";
+    gutter.appendChild(number);
+  }
+}
+
+haystackField.addEventListener("scroll", () => {
+  gutter.scrollTop = haystackField.scrollTop;
+});
 
 // The engine reports byte offsets; the page counts characters.
 function charIndexAt(text, byteOffset) {
@@ -166,14 +658,43 @@ function charIndexAt(text, byteOffset) {
 function mark(text, start, end) {
   const from = charIndexAt(text, start);
   const to = charIndexAt(text, end);
-  const before = text.slice(0, from);
-  const inside = text.slice(from, to);
-  const after = text.slice(to);
   out.innerHTML = "";
-  out.append(before);
+  out.append(text.slice(0, from));
   const element = document.createElement("mark");
-  element.textContent = inside;
-  out.append(element, after);
+  element.textContent = text.slice(from, to);
+  out.append(element, text.slice(to));
+}
+
+function lineOf(text, offset) {
+  return text.slice(0, offset).split("\n").length;
+}
+
+// The console keeps the log of the analyses, the way a terminal does.
+let analyses = 0;
+
+function log(request, answer) {
+  analyses += 1;
+  const command = document.createElement("div");
+  command.className = "cmd";
+  command.textContent = "> " + request;
+
+  const result = document.createElement("div");
+  result.className = "res";
+  if (answer.status === "confident") {
+    result.classList.add(answer.matched ? "hit" : "miss");
+    result.textContent = "  " + (answer.kind || answer.spec) +
+      (answer.matched ? "   matched " + answer.start + ".." + answer.end : "   no match");
+  } else {
+    result.classList.add("miss");
+    const why = answer.status === "error" ? answer.error : (answer.reason || answer.status);
+    result.textContent = "  " + (why || answer.status) +
+      (answer.suggestions && answer.suggestions.length
+        ? "   [" + answer.suggestions.join(", ") + "]" : "");
+  }
+
+  consoleBox.append(command, result);
+  consoleBox.scrollTop = consoleBox.scrollHeight;
+  headConsole.textContent = analyses + (analyses === 1 ? " analysis" : " analyses");
 }
 
 function analyse() {
@@ -187,70 +708,179 @@ function analyse() {
     .then((answer) => render(answer))
     .catch(() => {
       dot.className = "dot err";
+      dot2.className = "dot err";
+      sDot.className = "dot err";
       verdict.textContent = "the server did not answer";
+      verdict2.textContent = "the server did not answer";
+      sVerdict.textContent = "the server did not answer";
     });
 }
 
 function render(answer) {
-  groupsBox.innerHTML = "";
+  groupsBody.innerHTML = "";
+  const haystack = answer.haystack || "";
+  log(requestField.value, answer);
 
   if (answer.status === "ambiguous") {
     dot.className = "dot amb";
+    dot2.className = "dot amb";
+    sDot.className = "dot amb";
     verdict.textContent = "the model did not settle on one specification";
-    spec.textContent = answer.reason + (answer.suggestions && answer.suggestions.length
-      ? " - " + answer.suggestions.join(", ") : "");
-    out.textContent = "";
+    verdict2.textContent = verdict.textContent;
+    sVerdict.textContent = verdict.textContent;
+    kind.textContent = answer.kind || "ambiguous";
+    spec.textContent = (answer.suggestions && answer.suggestions.length)
+      ? answer.suggestions.join(", ")
+      : "-";
+    reason.textContent = answer.reason || "-";
+    kNote.className = "note warn";
+    kNote.textContent = "The model refused to guess. The candidates above are the families it weighed, and the caller has to choose one.";
+    mNote.className = "note warn";
+    mNote.textContent = "";
+    out.textContent = haystack;
+    groupsEmpty.textContent = "no groups";
+    sSpec.textContent = answer.reason || "ambiguous";
+    paintGutter(0);
+    setPath("ambiguous");
     return;
   }
 
   if (answer.status === "error") {
     dot.className = "dot err";
+    dot2.className = "dot err";
+    sDot.className = "dot err";
     verdict.textContent = "the engine refused the specification";
-    spec.textContent = answer.error || "";
-    out.textContent = "";
+    verdict2.textContent = verdict.textContent;
+    sVerdict.textContent = verdict.textContent;
+    kind.textContent = "error";
+    spec.textContent = answer.error || "-";
+    reason.textContent = "-";
+    kNote.className = "note err";
+    kNote.textContent = answer.error || "";
+    mNote.className = "note err";
+    mNote.textContent = "";
+    out.textContent = haystack;
+    groupsEmpty.textContent = "no groups";
+    sSpec.textContent = "error";
+    paintGutter(0);
+    setPath("error");
     return;
   }
 
-  spec.textContent = answer.spec || "";
+  kind.textContent = answer.kind || (answer.spec || "").split(" ")[0] || "-";
+  spec.textContent = answer.spec || "-";
+  reason.textContent = answer.anchored ? "anchored" : "not anchored";
+  kNote.className = "note";
+  kNote.textContent = answer.anchored
+    ? "A validation is anchored: the whole haystack has to be the value. A validation never looks for the value inside a sentence."
+    : "An extraction is not anchored: it finds the value inside the sentence and reports the capture groups.";
 
   if (answer.matched) {
     dot.className = "dot ok";
+    dot2.className = "dot ok";
+    sDot.className = "dot ok";
     verdict.textContent = "matched " + answer.start + ".." + answer.end;
-    mark(answer.haystack, answer.start, answer.end);
+    verdict2.textContent = verdict.textContent;
+    sVerdict.textContent = verdict.textContent;
+    mark(haystack, answer.start, answer.end);
+    mNote.className = "note";
+    mNote.textContent = "The match is reported in byte offsets, the way the engine counts.";
+    paintGutter(lineOf(haystack, answer.start));
   } else {
     dot.className = "dot";
+    dot2.className = "dot";
+    sDot.className = "dot";
     verdict.textContent = "no match";
-    out.textContent = answer.haystack;
-    hint.textContent = answer.anchored
-      ? "a validation is anchored: the whole haystack has to be the value"
+    verdict2.textContent = "no match";
+    sVerdict.textContent = "no match";
+    out.textContent = haystack;
+    mNote.className = "note";
+    mNote.textContent = answer.anchored
+      ? "A validation is anchored: the whole haystack has to be the value."
       : "";
+    paintGutter(0);
   }
 
-  if (answer.groups && answer.groups.length > 1) {
-    const table = document.createElement("table");
+  if (answer.groups && answer.groups.length) {
+    groupsEmpty.style.display = "none";
     for (const group of answer.groups) {
       const row = document.createElement("tr");
-      const index = document.createElement("td");
-      index.textContent = group.index;
+      const number = document.createElement("td");
+      number.className = "n";
+      number.textContent = group.index;
       const span = document.createElement("td");
       span.textContent = group.start + ".." + group.end;
       const text = document.createElement("td");
+      text.className = "v";
       text.textContent = JSON.stringify(group.text);
-      row.append(index, span, text);
-      table.appendChild(row);
+      row.append(number, span, text);
+      groupsBody.appendChild(row);
     }
-    groupsBox.appendChild(table);
+  } else {
+    groupsEmpty.style.display = "block";
+    groupsEmpty.textContent = "no groups";
   }
+
+  sSpec.textContent = kind.textContent;
+  headRequest.textContent = requestField.value.length + " chars";
+  headHaystack.textContent = haystack.split("\n").length + " lines";
+  tagRequest.className = "tag on";
+  tagHaystack.className = "tag on";
+  setPath(answer.status);
+}
+
+function setPath(status) {
+  const on = status === "confident";
+  document.getElementById("p-intent").className = on ? "on" : "idle";
+  document.getElementById("p-search").className = "idle";
+  document.getElementById("p-core").className = on ? "on" : "idle";
+  document.getElementById("p-codec").className = "idle";
+  document.getElementById("n-intent").className = "node on";
+  document.getElementById("n-core").className = "node on";
+  document.getElementById("s-intent").textContent = on ? "on" : "refused";
+  document.getElementById("s-core").textContent = on ? "on" : "idle";
+  document.getElementById("s-search").textContent = "idle";
+  document.getElementById("s-codec").textContent = "idle";
+}
+
+// The inspector has tabs.
+for (const button of document.querySelectorAll(".tabs2 button")) {
+  button.addEventListener("click", () => {
+    for (const other of document.querySelectorAll(".tabs2 button")) {
+      other.classList.toggle("on", other === button);
+    }
+    for (const view of document.querySelectorAll(".pane-view")) {
+      view.classList.toggle("on", view.id === "v-" + button.dataset.tab);
+    }
+  });
 }
 
 let timer = null;
 for (const field of [requestField, haystackField]) {
   field.addEventListener("input", () => {
+    document.getElementById("crumb").textContent =
+      field === requestField ? "request" : "haystack";
     clearTimeout(timer);
     timer = setTimeout(analyse, 120);
   });
+  field.addEventListener("focus", () => {
+    document.getElementById("crumb").textContent =
+      field === requestField ? "request" : "haystack";
+  });
 }
 
+// Control and Enter analyses right away.
+for (const field of [requestField, haystackField]) {
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      analyse();
+    }
+  });
+}
+
+select(0);
+paintGutter(0);
 analyse();
 </script>
 </body>

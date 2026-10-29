@@ -151,6 +151,7 @@ fn analyse(query: &str) -> String {
         IntentSpec::Confident(spec) => {
             answer["status"] = json!("confident");
             answer["spec"] = json!(render::intent_summary(&IntentSpec::Confident(spec)));
+            answer["kind"] = json!(render::candidate_short_name(&spec));
             answer["anchored"] = json!(matches!(spec, CandidateSpec::Validate { .. }));
 
             match Regex::from_spec(&spec) {
@@ -193,6 +194,7 @@ fn analyse(query: &str) -> String {
         } => {
             answer["status"] = json!("ambiguous");
             answer["reason"] = json!(format!("{reason:?}"));
+            answer["kind"] = json!("ambiguous");
             answer["spec"] = json!(render::intent_summary(&outcome));
             let names: Vec<String> = suggestions
                 .iter()
