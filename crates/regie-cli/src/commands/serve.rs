@@ -16,12 +16,19 @@ use regie_intent::IntentModel;
 use serde_json::json;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::time::Duration;
 
 /// The page the server serves.
 const PAGE: &str = include_str!("../../web/index.html");
 
 /// The largest request the server reads.
 const MAX_REQUEST: usize = 64 * 1024;
+
+/// The time the server waits for the rest of a request.
+const READ_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// The time the server gives the socket to deliver the answer.
+const DRAIN_TIMEOUT: Duration = Duration::from_millis(20);
 
 /// Runs the `serve` subcommand.
 pub fn run_serve(port: u16) -> Result<u8, CliError> {
@@ -80,7 +87,26 @@ fn handle(stream: &mut TcpStream) -> std::io::Result<()> {
         body.len()
     );
     stream.write_all(response.as_bytes())?;
-    stream.flush()
+    stream.flush()?;
+    drain(stream);
+    Ok(())
+}
+
+/// Empties the input of the connection before it is closed.
+///
+/// The socket is closed right after the answer, and a close that follows a
+/// write too quickly can reach the client as a reset instead of the answer:
+/// the client then loses both.  Reading what is left of the input gives the
+/// stack the moment it needs, and leaves the receive buffer empty, so the
+/// client gets the answer and a clean end of stream.
+fn drain(stream: &mut TcpStream) {
+    let _ = stream.set_read_timeout(Some(DRAIN_TIMEOUT));
+    let mut scratch = [0u8; 256];
+    while let Ok(read) = stream.read(&mut scratch) {
+        if read == 0 {
+            break;
+        }
+    }
 }
 
 /// Reads the header block of a request.
@@ -88,7 +114,7 @@ fn handle(stream: &mut TcpStream) -> std::io::Result<()> {
 /// The request may arrive in more than one segment, so the read continues
 /// until the empty line that ends the headers is found.
 fn read_request(stream: &mut TcpStream) -> std::io::Result<String> {
-    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+    let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
 
     let mut buffer = vec![0u8; MAX_REQUEST];
     let mut filled = 0usize;
