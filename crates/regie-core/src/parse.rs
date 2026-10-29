@@ -160,6 +160,12 @@ impl<'a> Parser<'a> {
         let mut cursor = self.pos + 2;
         let mut negate = false;
         let mut touched = false;
+        // The flags are collected first and applied only once the directive is
+        // known to be one: a group such as `(?i:...)` starts with the same
+        // bytes and must not change the flags of what follows it.
+        let mut case_insensitive = flags.case_insensitive;
+        let mut multi_line = flags.multi_line;
+        let mut dot_matches_newline = flags.dot_matches_newline;
         while let Some(&byte) = self.input.get(cursor) {
             match byte {
                 b'-' if !negate => {
@@ -167,17 +173,17 @@ impl<'a> Parser<'a> {
                     cursor += 1;
                 }
                 b'i' => {
-                    flags.case_insensitive = !negate;
+                    case_insensitive = !negate;
                     cursor += 1;
                     touched = true;
                 }
                 b'm' => {
-                    flags.multi_line = !negate;
+                    multi_line = !negate;
                     cursor += 1;
                     touched = true;
                 }
                 b's' => {
-                    flags.dot_matches_newline = !negate;
+                    dot_matches_newline = !negate;
                     cursor += 1;
                     touched = true;
                 }
@@ -187,6 +193,9 @@ impl<'a> Parser<'a> {
         if !touched || self.input.get(cursor) != Some(&b')') {
             return Ok(false);
         }
+        flags.case_insensitive = case_insensitive;
+        flags.multi_line = multi_line;
+        flags.dot_matches_newline = dot_matches_newline;
         self.pos = cursor + 1;
         Ok(true)
     }

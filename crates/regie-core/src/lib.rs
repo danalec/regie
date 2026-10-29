@@ -16,7 +16,7 @@
 //!
 //! | Construct | Example | Notes |
 //! |---|---|---|
-//! | literal | `abc` | bytes, not code points, unless `unicode` is on |
+//! | literal | `abc` | bytes, not code points |
 //! | class | `[a-z]`, `[^a-z]` | ASCII ranges, POSIX shorthands |
 //! | alternation | `a|b` | left branch preferred |
 //! | group | `(...)` | capturing |
@@ -177,9 +177,9 @@ pub struct Regex {
 impl Regex {
     /// Compiles `pattern`.
     ///
-    /// The pattern is interpreted as bytes. With the `unicode` feature
-    /// enabled, character classes are matched against Unicode scalar values
-    /// instead.
+    /// The pattern is interpreted as bytes: a class matches exactly one byte,
+    /// never one code point. The `unicode` feature is reserved and changes
+    /// nothing yet.
     pub fn new(pattern: &str) -> Result<Regex> {
         RegexBuilder::new(pattern).build()
     }

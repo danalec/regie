@@ -184,7 +184,10 @@ impl<'a> Compiler<'a> {
                 greedy,
             } => self.emit_repeat(arena, child, min, max, greedy, next),
             HirNode::Capture { child, index } => {
-                if self.group_count as usize >= crate::MAX_CAPTURE_GROUPS {
+                // The limit belongs to the group being emitted, not to the
+                // groups emitted so far: a concatenation is compiled from the
+                // right, so the highest numbered group arrives first.
+                if index as usize >= crate::MAX_CAPTURE_GROUPS {
                     return Err(RegexError::TooManyGroups {
                         limit: crate::MAX_CAPTURE_GROUPS,
                     });

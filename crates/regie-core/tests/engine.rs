@@ -280,3 +280,55 @@ fn every_extraction_family_compiles() {
         );
     }
 }
+
+#[test]
+fn the_full_set_of_capture_groups_is_accepted() {
+    // A concatenation is compiled from the right, so the highest numbered
+    // group arrives first.  The limit belongs to the group being emitted and
+    // not to the number of groups emitted so far.
+    let re = Regex::new("(a)(b)(c)(d)(e)(f)(g)(h)").expect("eight groups should compile");
+    let caps = re.captures(b"abcdefgh").expect("should match");
+    assert_eq!(caps.len(), 9);
+    assert_eq!(re.group_count(), 8);
+    assert_eq!(caps.get(1).map(|g| (g.start, g.end)), Some((0, 1)));
+    assert_eq!(caps.get(8).map(|g| (g.start, g.end)), Some((7, 8)));
+}
+
+#[test]
+fn a_ninth_capture_group_is_refused() {
+    let pattern = "(a)(b)(c)(d)(e)(f)(g)(h)(i)";
+    match Regex::new(pattern) {
+        Err(RegexError::TooManyGroups { limit }) => {
+            assert_eq!(limit, regie_core::MAX_CAPTURE_GROUPS);
+        }
+        other => panic!("expected TooManyGroups, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_scoped_flag_group_does_not_leak() {
+    // The group is case-insensitive; the `C` that follows it is not.
+    let re = Regex::new("a(?i:b)C").expect("should compile");
+    assert!(re.is_match(b"abC"));
+    assert!(!re.is_match(b"aBc"));
+}
+
+#[test]
+fn a_scoped_multi_line_flag_does_not_leak() {
+    // The `^` inside the group is a line anchor; the one after it is a text
+    // anchor, so the pattern cannot match the second line.
+    let re = Regex::new("(?m:^a\n)^b").expect("should compile");
+    assert!(!re.is_match(b"a\nb"));
+
+    // The directive form applies to the rest of the group, so this one does
+    // match the second line.
+    let re = Regex::new("(?m)^a\n^b").expect("should compile");
+    assert!(re.is_match(b"a\nb"));
+}
+
+#[test]
+fn a_flag_directive_applies_to_the_rest_of_the_group() {
+    let re = Regex::new("a(?i)b").expect("should compile");
+    assert!(re.is_match(b"aB"));
+    assert!(!re.is_match(b"Ab"));
+}
