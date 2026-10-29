@@ -34,6 +34,30 @@ use regie_core::spec::{
 };
 use regie_core::{Captures, Regex};
 use serde_json::{json, Value};
+use std::io::IsTerminal;
+
+/// The escape code that ends every styled run of text.
+pub const RESET: &str = "\x1b[0m";
+
+/// The escape code of dim text.
+pub const DIM: &str = "\x1b[2m";
+
+/// The escape code of green text.
+pub const GREEN: &str = "\x1b[32m";
+
+/// The escape code of red text.
+pub const RED: &str = "\x1b[31m";
+
+/// Whether the output may carry colour.
+///
+/// Three things have to agree: the user did not ask for plain text, the
+/// `NO_COLOR` environment variable is not set - which is the convention every
+/// other tool follows - and the output is going to a terminal.  A pipe or a
+/// file gets the plain text, so that a script never has to strip escape
+/// codes.
+pub fn color_allowed() -> bool {
+    std::env::var_os("NO_COLOR").is_none() && std::io::stdout().is_terminal()
+}
 
 /// Quotes and escapes a byte string for display.
 ///

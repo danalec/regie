@@ -8,3 +8,5 @@ pub mod artifact;
 pub mod intent;
 pub mod matching;
 pub mod search;
+pub mod serve;
+pub mod show;

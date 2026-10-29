@@ -4,8 +4,11 @@
 //! sees: the output on standard output, the error on standard error and the
 //! exit code.
 
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
+use std::time::Duration;
 
 /// The binary under test.
 const BIN: &str = env!("CARGO_BIN_EXE_regie");
@@ -36,6 +39,52 @@ fn code(output: &Output) -> Option<i32> {
 /// A path in the temporary directory, unique to this test run.
 fn temp_path(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("regie-cli-{}-{name}", std::process::id()))
+}
+
+/// A port that is free at the moment of the call.
+///
+/// The port is taken from the operating system and released right away, so
+/// there is a small window in which another process could take it.  The test
+/// that uses it fails loudly when that happens, instead of hanging.
+fn free_port() -> u16 {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("no port could be taken");
+    let port = listener
+        .local_addr()
+        .expect("the port of the listener is unknown")
+        .port();
+    drop(listener);
+    port
+}
+
+/// Sends a request to the server and returns what it answered.
+fn ask(port: u16, request: &str) -> Option<String> {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).ok()?;
+    stream.write_all(request.as_bytes()).ok()?;
+    let mut answer = String::new();
+    stream.read_to_string(&mut answer).ok()?;
+    Some(answer)
+}
+
+/// Waits for the server to answer, and returns what it answered.
+fn wait_for_the_server(port: u16) -> Option<String> {
+    let request = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+    for _ in 0..50 {
+        if let Some(answer) = ask(port, request) {
+            if answer.contains("200 OK") {
+                return Some(answer);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    None
+}
+
+/// The body of an HTTP answer.
+fn body(answer: &str) -> &str {
+    answer
+        .split("\r\n\r\n")
+        .nth(1)
+        .expect("the answer has no body")
 }
 
 #[test]
@@ -240,13 +289,127 @@ fn help_lists_every_subcommand() {
 
     assert_eq!(code(&output), Some(0));
     let text = stdout(&output);
-    for subcommand in ["match", "test", "intent", "search", "dfa", "decode"] {
+    for subcommand in [
+        "match", "test", "intent", "search", "show", "serve", "dfa", "decode",
+    ] {
         assert!(
             text.contains(subcommand),
             "`{subcommand}` is missing from the help"
         );
     }
     assert!(text.contains("EXIT CODES"), "{text}");
+}
+
+#[test]
+fn show_underlines_the_match_and_lists_the_capture_groups() {
+    let output = run(&[
+        "show",
+        "extrair o email",
+        "--input",
+        "mail ana@corp.com now",
+    ]);
+
+    assert_eq!(code(&output), Some(0));
+    let text = stdout(&output);
+    assert!(text.contains("haystack: mail ana@corp.com now"), "{text}");
+    assert!(text.contains("matched 5..17"), "{text}");
+    assert!(text.contains("0: 5..17 \"ana@corp.com\""), "{text}");
+    assert!(text.contains("1: 5..17 \"ana@corp.com\""), "{text}");
+}
+
+#[test]
+fn show_explains_that_a_validation_is_anchored() {
+    let output = run(&[
+        "show",
+        "validar CPF",
+        "--input",
+        "the cpf of ana is 123.456.789-09",
+    ]);
+
+    assert_eq!(code(&output), Some(1));
+    let text = stdout(&output);
+    assert!(text.contains("no match"), "{text}");
+    assert!(
+        text.contains("a validation is anchored - the whole haystack has to be the value"),
+        "{text}"
+    );
+}
+
+#[test]
+fn show_without_a_haystack_is_a_usage_error() {
+    let output = run(&["show", "validar CPF"]);
+
+    assert_eq!(code(&output), Some(2));
+    assert!(
+        stderr(&output).starts_with("error: "),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn show_writes_plain_text_into_a_pipe() {
+    let output = run(&[
+        "show",
+        "extrair o email",
+        "--input",
+        "mail ana@corp.com now",
+    ]);
+
+    let text = stdout(&output);
+    assert!(
+        !text.contains('\u{1b}'),
+        "the output carries escape codes: {text:?}"
+    );
+}
+
+#[test]
+fn serve_answers_the_page_and_the_analysis() {
+    let port = free_port();
+    let mut child = Command::new(BIN)
+        .arg("serve")
+        .arg("--port")
+        .arg(port.to_string())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("the server could not be started");
+
+    let page = wait_for_the_server(port);
+    let analysis = page.as_ref().and_then(|_| {
+        ask(
+            port,
+            "GET /analyse?request=extrair%20o%20email&haystack=mail%20ana@corp.com%20now HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+        )
+    });
+    let validation = analysis.as_ref().and_then(|_| {
+        ask(
+            port,
+            "GET /analyse?request=validar%20CPF&haystack=123.456.789-09 HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+        )
+    });
+
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let page = page.expect("the server did not answer in time");
+    assert!(page.contains("regie - the live view"), "{page}");
+
+    let answer = analysis.expect("the server did not answer the analysis");
+    let value: serde_json::Value =
+        serde_json::from_str(body(&answer)).expect("the answer is not valid JSON");
+    assert_eq!(value["status"], "confident");
+    assert_eq!(value["matched"], true);
+    assert_eq!(value["start"], 5);
+    assert_eq!(value["end"], 17);
+    assert_eq!(value["anchored"], false);
+
+    let answer = validation.expect("the server did not answer the second analysis");
+    let value: serde_json::Value =
+        serde_json::from_str(body(&answer)).expect("the answer is not valid JSON");
+    assert_eq!(value["status"], "confident");
+    assert_eq!(value["matched"], true);
+    assert_eq!(value["anchored"], true);
 }
 
 #[test]

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>regie - the live view</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --line: #262b36;
+    --text: #e6e9ef;
+    --muted: #939cad;
+    --accent: #7ee787;
+    --accent-dim: #2b6b32;
+    --warn: #f0b429;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  h1 { font-size: 19px; margin: 0; letter-spacing: .2px; }
+  h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 22px; padding: 22px 28px 40px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .card + .card { margin-top: 18px; }
+  label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 8px; }
+  textarea, input[type=text] {
+    width: 100%; background: #0c0e13; color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 10px 12px; font-family: var(--mono); font-size: 13.5px; resize: vertical;
+  }
+  textarea:focus, input[type=text]:focus { outline: none; border-color: var(--accent-dim); }
+  #haystack { min-height: 190px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip {
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+    font-size: 12px; color: var(--muted); cursor: pointer; background: #0c0e13;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent-dim); }
+  .verdict { display: flex; align-items: center; gap: 9px; font-size: 13px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--accent); }
+  .dot.amb { background: var(--warn); }
+  .dot.err { background: #f85149; }
+  .spec { font-family: var(--mono); font-size: 12.5px; color: var(--muted); word-break: break-word; }
+  .hay { font-family: var(--mono); font-size: 14px; white-space: pre-wrap; word-break: break-word; margin: 0; line-height: 1.7; }
+  mark { background: var(--accent-dim); color: #f0fff4; border-radius: 3px; padding: 1px 2px; }
+  .none { color: #f85149; }
+  .groups { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .groups table { border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; width: 100%; }
+  .groups td { padding: 3px 10px 3px 0; color: var(--muted); vertical-align: top; }
+  .groups td:first-child { color: var(--text); width: 34px; }
+  .groups td:last-child { color: var(--accent); }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+  .layers { margin-top: 18px; font-size: 12.5px; color: var(--muted); }
+  .layers div { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .layers b { color: var(--text); font-weight: 600; min-width: 108px; font-family: var(--mono); font-size: 12px; }
+  .layers span.on { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>regie <span>&mdash;</span> the live view</h1>
+  <p>Type a request in plain language. The model turns it into a specification, the engine compiles that into an automaton, and the match lights up as you type.</p>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <label for="request">The request</label>
+      <input type="text" id="request" value="extrair o email" spellcheck="false" autocomplete="off">
+      <div class="chips" id="chips"></div>
+      <div class="hint">The model never writes a pattern. It chooses one value out of a closed enumeration, and the compiler turns that value into an automaton.</div>
+    </div>
+
+    <div class="card">
+      <label for="haystack">The haystack</label>
+      <textarea id="haystack" spellcheck="false">the cpf of ana is 123.456.789-09 and her e-mail is ana@corp.com</textarea>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <div class="verdict"><span class="dot" id="dot"></span><span id="verdict">waiting</span></div>
+      <div class="spec" id="spec"></div>
+      <p class="hay" id="out"></p>
+      <p class="hint" id="hint"></p>
+      <div class="groups" id="groups"></div>
+      <div class="hint">A validation request checks the whole haystack. An extraction request finds the value inside a sentence.</div>
+    </div>
+
+    <div class="card">
+      <label>The path</label>
+      <div class="layers">
+        <div><b>regie-intent</b><span class="on" id="l1">request</span> &rarr; specification</div>
+        <div><b>regie-search</b><span id="l2">no examples</span></div>
+        <div><b>regie-core</b><span class="on" id="l3">Thompson NFA + Pike VM</span></div>
+        <div><b>regie-codec</b><span id="l4">not needed here</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const requestField = document.getElementById("request");
+const haystackField = document.getElementById("haystack");
+const dot = document.getElementById("dot");
+const verdict = document.getElementById("verdict");
+const spec = document.getElementById("spec");
+const out = document.getElementById("out");
+const hint = document.getElementById("hint");
+const groupsBox = document.getElementById("groups");
+const chips = document.getElementById("chips");
+
+const EXAMPLES = [
+  ["extrair o email", "mail ana@corp.com now"],
+  ["extrair o texto entre colchetes", "the value is [42] here"],
+  ["bloquear a palavra spam", "this is spam"],
+  ["validar CPF", "123.456.789-09"],
+  ["validar email", "ana@corp.com"],
+  ["validar data ISO", "2026-10-29"],
+];
+
+for (const [request, haystack] of EXAMPLES) {
+  const chip = document.createElement("button");
+  chip.className = "chip";
+  chip.type = "button";
+  chip.textContent = request;
+  chip.addEventListener("click", () => {
+    requestField.value = request;
+    haystackField.value = haystack;
+    analyse();
+  });
+  chips.appendChild(chip);
+}
+
+// The engine reports byte offsets; the page counts characters.
+function charIndexAt(text, byteOffset) {
+  const encoder = new TextEncoder();
+  let used = 0;
+  let index = 0;
+  while (used < byteOffset && index < text.length) {
+    const code = text.codePointAt(index);
+    const size = code > 0xffff ? 2 : 1;
+    used += encoder.encode(String.fromCodePoint(code)).length;
+    index += size;
+  }
+  return index;
+}
+
+function mark(text, start, end) {
+  const from = charIndexAt(text, start);
+  const to = charIndexAt(text, end);
+  const before = text.slice(0, from);
+  const inside = text.slice(from, to);
+  const after = text.slice(to);
+  out.innerHTML = "";
+  out.append(before);
+  const element = document.createElement("mark");
+  element.textContent = inside;
+  out.append(element, after);
+}
+
+function analyse() {
+  const request = requestField.value;
+  const haystack = haystackField.value;
+  const query = "/analyse?request=" + encodeURIComponent(request) +
+                "&haystack=" + encodeURIComponent(haystack);
+
+  fetch(query)
+    .then((response) => response.json())
+    .then((answer) => render(answer))
+    .catch(() => {
+      dot.className = "dot err";
+      verdict.textContent = "the server did not answer";
+    });
+}
+
+function render(answer) {
+  groupsBox.innerHTML = "";
+
+  if (answer.status === "ambiguous") {
+    dot.className = "dot amb";
+    verdict.textContent = "the model did not settle on one specification";
+    spec.textContent = answer.reason + (answer.suggestions && answer.suggestions.length
+      ? " - " + answer.suggestions.join(", ") : "");
+    out.textContent = "";
+    return;
+  }
+
+  if (answer.status === "error") {
+    dot.className = "dot err";
+    verdict.textContent = "the engine refused the specification";
+    spec.textContent = answer.error || "";
+    out.textContent = "";
+    return;
+  }
+
+  spec.textContent = answer.spec || "";
+
+  if (answer.matched) {
+    dot.className = "dot ok";
+    verdict.textContent = "matched " + answer.start + ".." + answer.end;
+    mark(answer.haystack, answer.start, answer.end);
+  } else {
+    dot.className = "dot";
+    verdict.textContent = "no match";
+    out.textContent = answer.haystack;
+    hint.textContent = answer.anchored
+      ? "a validation is anchored: the whole haystack has to be the value"
+      : "";
+  }
+
+  if (answer.groups && answer.groups.length > 1) {
+    const table = document.createElement("table");
+    for (const group of answer.groups) {
+      const row = document.createElement("tr");
+      const index = document.createElement("td");
+      index.textContent = group.index;
+      const span = document.createElement("td");
+      span.textContent = group.start + ".." + group.end;
+      const text = document.createElement("td");
+      text.textContent = JSON.stringify(group.text);
+      row.append(index, span, text);
+      table.appendChild(row);
+    }
+    groupsBox.appendChild(table);
+  }
+}
+
+let timer = null;
+for (const field of [requestField, haystackField]) {
+  field.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(analyse, 120);
+  });
+}
+
+analyse();
+</script>
+</body>
+</html>

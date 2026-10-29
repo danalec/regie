@@ -42,7 +42,9 @@ pub const EXIT_NO_MATCH: u8 = 1;
 pub const EXIT_ERROR: u8 = 2;
 
 /// The subcommands the tool understands.
-const SUBCOMMANDS: [&str; 6] = ["match", "test", "intent", "search", "dfa", "decode"];
+const SUBCOMMANDS: [&str; 8] = [
+    "match", "test", "intent", "search", "show", "serve", "dfa", "decode",
+];
 
 /// A failure reported by the tool.
 ///
@@ -124,6 +126,26 @@ enum Command {
         /// Where the artifact is written.
         output: String,
     },
+    /// Interpret a request and show what it matches.
+    Show {
+        /// The request, in natural language.
+        request: String,
+        /// The haystack, when it is given on the command line.
+        input: Option<String>,
+        /// The values the specification has to accept.
+        positive: Vec<String>,
+        /// The values the specification has to reject.
+        negative: Vec<String>,
+        /// Whether the output may carry colour.
+        color: bool,
+        /// The file to watch.
+        watch: Option<String>,
+    },
+    /// Serve the live view on the loopback interface.
+    Serve {
+        /// The port to listen on.
+        port: u16,
+    },
     /// Match an input against a DFA artifact.
     Decode {
         /// The artifact to read.
@@ -175,6 +197,22 @@ fn run(args: &[String]) -> Result<u8, CliError> {
         } => commands::search::run_search(&request, &positive, &negative),
         Command::Dfa { pattern, output } => commands::artifact::run_dfa(&pattern, &output),
         Command::Decode { artifact, input } => commands::artifact::run_decode(&artifact, &input),
+        Command::Show {
+            request,
+            input,
+            positive,
+            negative,
+            color,
+            watch,
+        } => commands::show::run_show(&commands::show::ShowOptions {
+            request: &request,
+            input: input.as_deref(),
+            positive: &positive,
+            negative: &negative,
+            color,
+            watch: watch.as_deref(),
+        }),
+        Command::Serve { port } => commands::serve::run_serve(port),
     }
 }
 
@@ -216,6 +254,8 @@ fn parse(args: &[String]) -> Result<Command, CliError> {
             Ok(Command::Intent { request })
         }
         "search" => parse_search(rest),
+        "show" => parse_show(rest),
+        "serve" => parse_serve(rest),
         "dfa" => {
             let positional = positionals(rest, first)?;
             if positional.help {
@@ -275,6 +315,123 @@ fn positionals(args: &[String], topic: &str) -> Result<Positional, CliError> {
     Ok(Positional {
         values,
         help: false,
+    })
+}
+
+/// Parses the arguments of the `serve` subcommand.
+fn parse_serve(args: &[String]) -> Result<Command, CliError> {
+    let mut port: u16 = 8080;
+    let mut index = 0usize;
+
+    while index < args.len() {
+        let arg = args[index].clone();
+        index += 1;
+
+        match arg.as_str() {
+            "-h" | "--help" => return Ok(Command::Help(Some("serve".to_string()))),
+            "--port" => {
+                let Some(value) = args.get(index) else {
+                    return Err(CliError::Usage("`--port` needs a value".to_owned()));
+                };
+                index += 1;
+                port = parse_port(value)?;
+            }
+            other if other.starts_with("--port=") => {
+                port = parse_port(&other["--port=".len()..])?;
+            }
+            other if other.starts_with('-') && other.len() > 1 => {
+                return Err(unknown_flag(other, "serve"));
+            }
+            other => {
+                return Err(CliError::Usage(format!(
+                    "unexpected argument `{other}` for `serve`"
+                )));
+            }
+        }
+    }
+
+    Ok(Command::Serve { port })
+}
+
+/// Reads a port number.
+fn parse_port(text: &str) -> Result<u16, CliError> {
+    text.parse::<u16>()
+        .map_err(|_| CliError::Usage(format!("`{text}` is not a port number")))
+}
+
+/// Parses the arguments of the `show` subcommand.
+fn parse_show(args: &[String]) -> Result<Command, CliError> {
+    let mut request: Vec<String> = Vec::new();
+    let mut input: Option<String> = None;
+    let mut positive: Vec<String> = Vec::new();
+    let mut negative: Vec<String> = Vec::new();
+    let mut watch: Option<String> = None;
+    let mut color = render::color_allowed();
+    let mut literal = false;
+    let mut index = 0usize;
+
+    while index < args.len() {
+        let arg = args[index].clone();
+        index += 1;
+
+        if literal {
+            request.push(arg);
+            continue;
+        }
+
+        match arg.as_str() {
+            "--" => literal = true,
+            "-h" | "--help" => return Ok(Command::Help(Some("show".to_string()))),
+            "--no-color" => color = false,
+            "--input" | "--watch" | "--positive" | "--negative" => {
+                let Some(value) = args.get(index) else {
+                    return Err(CliError::Usage(format!("`{arg}` needs a value")));
+                };
+                index += 1;
+                match arg.as_str() {
+                    "--input" => input = Some(value.clone()),
+                    "--watch" => watch = Some(value.clone()),
+                    "--positive" => {
+                        push_example("--positive", value, &mut positive, &mut negative)?
+                    }
+                    _ => push_example("--negative", value, &mut positive, &mut negative)?,
+                }
+            }
+            other if other.starts_with("--input=") => {
+                input = Some(other["--input=".len()..].to_owned());
+            }
+            other if other.starts_with("--watch=") => {
+                watch = Some(other["--watch=".len()..].to_owned());
+            }
+            other if other.starts_with("--positive=") => {
+                let value = &other["--positive=".len()..];
+                push_example("--positive", value, &mut positive, &mut negative)?;
+            }
+            other if other.starts_with("--negative=") => {
+                let value = &other["--negative=".len()..];
+                push_example("--negative", value, &mut positive, &mut negative)?;
+            }
+            other if other.starts_with('-') && other.len() > 1 => {
+                return Err(unknown_flag(other, "show"));
+            }
+            other => request.push(other.to_string()),
+        }
+    }
+
+    let request = join_request(&request, "show")?;
+    if input.is_none() && watch.is_none() {
+        return Err(CliError::Usage(
+            "missing the haystack: `show` needs `--input <text>` or `--watch <file>`".to_owned(),
+        ));
+    }
+
+    Ok(Command::Show {
+        request,
+        input,
+        positive,
+        negative,
+        color,
+        watch,
     })
 }
 
@@ -448,6 +605,29 @@ fn print_help(topic: Option<&str>) {
                 "2  usage error",
             ],
         ),
+        Some("show") => print_command_help(
+            "show - interpret a request and show what it matches",
+            "regie show <request> --input <text> [--positive <v>] [--negative <v>] [--watch <file>] [--no-color]",
+            &[
+                ("<request>", "The request, in natural language"),
+                ("--input <text>", "The haystack to match against"),
+                ("--positive <example>", "An example the outcome has to accept"),
+                ("--negative <example>", "An example the outcome has to reject"),
+                ("--watch <file>", "Watch the file and print the view again when it changes"),
+                ("--no-color", "Print without colour"),
+            ],
+            &[
+                "0  the haystack matched",
+                "1  no match, or no answer the tool could settle on",
+                "2  usage error, I/O error, or an input the engine rejected",
+            ],
+        ),
+        Some("serve") => print_command_help(
+            "serve - serve the live view on the loopback interface",
+            "regie serve [--port <port>]",
+            &[("--port <port>", "The port to listen on, 8080 by default")],
+            &["0  the server stopped", "2  usage error, or the port was taken"],
+        ),
         Some("dfa") => print_command_help(
             "dfa - compile a pattern into a DFA artifact",
             "regie dfa <pattern> <out.bin>",
@@ -494,6 +674,9 @@ COMMANDS:
     intent <request>                 Interpret a natural-language request
     search <request> --positive <v>  Verify a request against examples
              [--negative <v>...]
+    show  <request> --input <text>   Interpret a request and show the match
+             [--positive <v>] [--negative <v>] [--watch <file>]
+    serve [--port <port>]            Serve the live view on 127.0.0.1
     dfa   <pattern> <out.bin>        Compile a pattern into a DFA artifact
     decode <artifact.bin> <input>    Match an input against a DFA artifact
     help                             Print this help
