@@ -71,6 +71,25 @@ then links to a gallery per crate:
 The dependency graph is a straight line. `regie-core` knows nothing about
 intents, models or files; `regie-intent` knows nothing about matching.
 
+## Why five crates
+
+They split along the lines of what changes for different reasons. The dialect
+and the engine change in `regie-core`, the model and its corpus in
+`regie-intent`, the search strategy in `regie-search`, the artifact format in
+`regie-codec`, and the command line in `regie-cli`. A firmware build that only
+needs a matcher links exactly one crate and nothing else.
+
+## When not to use it
+
+* If you need look-around, backreferences or recursion, use a full engine.
+  This one refuses them on purpose, because they are exactly what makes
+  matching unpredictable.
+* If you need Unicode-aware classes and you have memory to spare, the `regex`
+  crate is faster and more complete. [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
+  has the measured gap.
+* If you want a model that writes patterns, this is the wrong project on
+  purpose. The intent layer produces specifications, never pattern text.
+
 ## Quick start
 
 ```toml
