@@ -38,6 +38,10 @@ $ regie search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+rank 2: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+rank 3: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+rank 4: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+explored: 64 candidates, 52 rejected
 
 $ regie dfa '^ana@corp\.com$' ana.rdf
 wrote 558 bytes to ana.rdf (14 states, 10 byte classes)
@@ -70,3 +74,19 @@ snake-case name, and every optional field is `null` when it is absent.
 The raw `serde` form of the specification - the externally tagged one the
 dataset uses - is not what the tool prints. The flat form is easier to
 read and easier to script against, and it is covered by the tests.
+
+## More examples
+
+The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every subcommand, with
+the output it prints and the exit code it produced.
+
+Compiling a pattern into an artifact and matching an input against it:
+
+```console
+$ regie dfa '^ana@corp\.com$' ana.rdf
+wrote 558 bytes to ana.rdf (14 states, 10 byte classes)
+
+$ regie decode ana.rdf 'ana@corp.com'
+artifact: 558 bytes, 14 states, 10 byte classes
+match
+```

@@ -9,8 +9,8 @@
 //! ```text
 //! search: confident
 //! candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
-//! rank 1: validate brazilian_cpf score=2 positives=1/1 negatives_rejected=1/1
-//! explored: 12 candidates, 11 rejected
+//! rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+//! explored: 64 candidates, 52 rejected
 //! ```
 //!
 //! The outcome is the verified candidate when there is exactly one, and an
