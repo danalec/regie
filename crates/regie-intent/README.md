@@ -57,6 +57,22 @@ let candidates = model.candidates("extrair os numeros");
 assert!(!candidates.is_empty());
 ```
 
+## More examples
+
+The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every example of the
+crate, with the output each one prints.
+
+```console
+$ cargo run -p regie-intent --example spec_to_regex
+request: "validar um CPF"
+  intent:   confident
+  spec:     validate brazilian_cpf (strictness=Standard, charset=Digits, max_len=Some(14))
+  compiled: 0 capture groups
+  "123.456.789-09" -> match
+  "not a cpf" -> no match
+  ...
+```
+
 ## The training
 
 The corpus, the trainer and the weights are in the workspace:
@@ -75,14 +91,14 @@ That number says little about the model on requests the corpus does not
 contain, because the corpus is generated from templates; see
 [docs/EVOLUTION.md](../../docs/EVOLUTION.md).
 
-## The features
+## The Cargo features
 
 | feature | effect |
 |---|---|
 | *(none)* | `no_std`, no allocator |
 | `alloc` | the heap-backed helpers |
 | `std` | `std::error::Error` |
-| `serde` | `Serialize` and `Deserialize` for the model |
+| `serde` | forwards to `regie-core/serde`, which derives `Serialize` and `Deserialize` for the **specification types**. The model itself is not serializable. |
 
 ## The tests
 

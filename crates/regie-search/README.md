@@ -75,6 +75,21 @@ the outcome never depends on the order in which the candidates happened to be
 explored. The seed the model ranked first therefore wins a tie inside its
 family.
 
+## More examples
+
+The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every example of the
+crate, with the output each one prints.
+
+```console
+$ cargo run -p regie-search --example discriminate
+request: "extrair o texto" - bracketed
+  positives: ["[42]", "[valor]"]
+  negatives: ["abc", "42"]
+  explored: 24, rejected: 18
+  outcome: confident extract between_delimiters (Greedy, Group)
+  ...
+```
+
 ## Features
 
 | Feature | Effect |
