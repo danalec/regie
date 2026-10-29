@@ -218,7 +218,7 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 132 unit, integration and documentation tests |
+| `cargo test --workspace` | 171 unit, integration and documentation tests |
 | `tools/differential_test.py` | 21,323 cases against Python's `re` |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
 | `fuzz/` | two fuzz targets: the parser and the compiler |
