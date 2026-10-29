@@ -1,0 +1,27 @@
+[package]
+name = "regie-intent"
+description = "Micro-model that turns natural-language requests into structured regex specifications"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+alloc = ["regie-core/alloc"]
+std = ["alloc", "regie-core/std"]
+serde = ["dep:serde", "regie-core/serde", "alloc"]
+
+[dependencies]
+regie-core = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+proptest = { workspace = true }
+# The dataset is written in the serde form of the specification, so the tests
+# read it back with the types of `regie-core` themselves.
+regie-core = { workspace = true, features = ["serde"] }
+
+[lints]
+workspace = true

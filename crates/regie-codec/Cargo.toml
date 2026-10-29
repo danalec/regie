@@ -1,0 +1,21 @@
+[package]
+name = "regie-codec"
+description = "Serialization of compiled regie automata for embedded firmware"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+alloc = ["regie-core/alloc"]
+std = ["alloc", "regie-core/std"]
+
+[dependencies]
+regie-core = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

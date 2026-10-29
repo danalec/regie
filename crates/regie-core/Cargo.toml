@@ -1,0 +1,31 @@
+[package]
+name = "regie-core"
+description = "no_std deterministic regex engine: safe dialect, Thompson NFA, Pike VM, compact DFA"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Enables heap-backed helpers (DFA construction, owned pattern buffers).
+alloc = []
+# Enables `std` integration (std::error::Error, formatting helpers).
+std = ["alloc"]
+# Enables UTF-8 aware character classes.
+unicode = []
+# Enables serde derives for serializable artifacts.
+serde = ["dep:serde", "alloc"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+serde_json = { workspace = true }
+criterion = { workspace = true }
+# The reference engine the benchmarks compare against.
+regex-automata = { workspace = true }
+
+[lints]
+workspace = true

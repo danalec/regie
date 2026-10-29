@@ -1,0 +1,39 @@
+# The build directories.
+/target/
+target/
+target-parent/
+target-agent-*/
+target-differential/
+target-embedded/
+
+# The coverage reports.
+coverage.json
+coverage-full.json
+cov.txt
+*.profraw
+*.profdata
+llvm-cov/
+target/llvm-cov/
+
+# The criterion reports.
+criterion/
+
+# The fuzzing corpus and the crashes.
+fuzz/corpus/
+fuzz/artifacts/
+fuzz/target/
+
+# The Python bytecode the offline tools leave behind.
+__pycache__/
+*.pyc
+
+# The files the editor leaves behind.
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# The local overrides of the workspace.
+Cargo.lock.orig

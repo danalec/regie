@@ -1,0 +1,29 @@
+[package]
+name = "regie-cli"
+description = "Command line front-end for the regie regex engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "regie"
+path = "src/main.rs"
+
+[features]
+default = ["std"]
+alloc = ["regie-core/alloc", "regie-intent/alloc", "regie-search/alloc"]
+std = ["alloc", "regie-core/std", "regie-intent/std", "regie-search/std"]
+
+[dependencies]
+regie-core = { workspace = true }
+regie-codec = { workspace = true }
+regie-intent = { workspace = true }
+regie-search = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

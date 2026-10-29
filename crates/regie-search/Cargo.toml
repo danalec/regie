@@ -1,0 +1,23 @@
+[package]
+name = "regie-search"
+description = "Verified hypothesis search over structured regex specifications"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+alloc = ["regie-core/alloc"]
+std = ["alloc", "regie-core/std"]
+mcts = []
+
+[dependencies]
+regie-core = { workspace = true }
+regie-intent = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

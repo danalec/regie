@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/regie-core",
+    "crates/regie-codec",
+    "crates/regie-intent",
+    "crates/regie-search",
+    "crates/regie-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+regie-core = { path = "crates/regie-core", version = "0.1.0" }
+regie-codec = { path = "crates/regie-codec", version = "0.1.0" }
+regie-intent = { path = "crates/regie-intent", version = "0.1.0" }
+regie-search = { path = "crates/regie-search", version = "0.1.0" }
+
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", features = ["alloc"] }
+proptest = { version = "1", default-features = false, features = ["std", "bit-set"] }
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+arbitrary = { version = "1", features = ["derive"] }
+libfuzzer-sys = "0.4"
+# The reference engine the benchmarks compare against.
+regex-automata = { version = "0.4", default-features = false, features = ["std", "syntax", "meta", "dfa-onepass", "hybrid"] }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[profile.bench]
+lto = true
+codegen-units = 1
+
+[profile.release]
+lto = true
+codegen-units = 1
