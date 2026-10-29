@@ -96,7 +96,7 @@ python tools/differential_test.py --cases 20000
 The harness runs the same patterns through the engine and through Python's
 `re`, in both directions: every case where the engine matches has to match in
 Python as well, and every case where the engine refuses the pattern has to be
-refused there too.  The current result is zero mismatches over 21,323 cases.
+refused there too.  The current result is zero mismatches over 21,980 cases.
 
 ## The example checker
 

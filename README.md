@@ -178,7 +178,7 @@ rather than a reinterpretation. [docs/SYNTAX.md](docs/SYNTAX.md) has the
 full grammar and the complete list of refusals.
 
 The dialect is checked against Python's `re` with a differential test that
-compares the two engines on **21,323** cases, including the cases where
+compares the two engines on **21,980** cases, including the cases where
 neither matches and the cases where both refuse the pattern. The current
 result is zero mismatches.
 
@@ -299,8 +299,8 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 176 unit, integration and documentation tests |
-| `tools/differential_test.py` | 21,323 cases against Python's `re` |
+| `cargo test --workspace` | 181 unit, integration and documentation tests |
+| `tools/differential_test.py` | 21,980 cases against Python's `re` |
 | `tools/check_examples.py` | every output quoted in the documentation |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
 | `fuzz/` | two fuzz targets: the parser and the compiler |

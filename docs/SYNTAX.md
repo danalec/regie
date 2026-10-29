@@ -461,7 +461,7 @@ The examples are the galleries of the workspace:
 ## How the dialect compares with Python's `re`
 
 The dialect is checked against Python's `re` by a differential test
-(`tools/differential_test.py`) that compares **21,323** cases. The two
+(`tools/differential_test.py`) that compares **21,980** cases. The two
 dialects differ on purpose in four places:
 
 | difference | Python | `regie` |

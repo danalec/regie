@@ -147,4 +147,4 @@ cargo test -p regie-core --all-features
 * `tests/property.rs` - the invariants that hold for every input.
 
 The differential test against Python's `re` lives in the workspace and
-covers 21,323 cases.
+covers 21,980 cases.
