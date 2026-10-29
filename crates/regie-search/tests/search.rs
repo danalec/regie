@@ -434,4 +434,168 @@ proptest! {
         }
         prop_assert!(report.explored as usize <= regie_search::MAX_EXPLORED);
     }
+
+    #[test]
+    fn a_confident_winner_matches_every_positive(
+        request in "[a-zA-Z ]{0,16}",
+        positives in prop::collection::vec("[a-zA-Z0-9@. ]{1,8}", 1..4),
+        negatives in prop::collection::vec("[a-zA-Z0-9@. ]{1,8}", 0..4),
+    ) {
+        // The search is *verified*: a candidate only survives when it matches
+        // every positive example and refuses every negative one.  The winner
+        // therefore has to behave that way when it is compiled again.
+        let positives: Vec<&str> = positives.iter().map(|text| text.as_str()).collect();
+        let negatives: Vec<&str> = negatives.iter().map(|text| text.as_str()).collect();
+        let examples = Examples { positive: &positives, negative: &negatives };
+
+        let report = search(&request, examples);
+        let candidate = match report.outcome {
+            IntentSpec::Confident(candidate) => candidate,
+            IntentSpec::Ambiguous { .. } => return Ok(()),
+        };
+
+        let regex = match regie_core::Regex::from_spec(&candidate) {
+            Ok(regex) => regex,
+            Err(_) => return Ok(()),
+        };
+        for positive in &positives {
+            prop_assert!(
+                regex.is_match(positive.as_bytes()),
+                "the winner {:?} refused the positive {:?}",
+                candidate.kind_name(),
+                positive
+            );
+        }
+        for negative in &negatives {
+            prop_assert!(
+                !regex.is_match(negative.as_bytes()),
+                "the winner {:?} matched the negative {:?}",
+                candidate.kind_name(),
+                negative
+            );
+        }
+    }
+}
+
+/// The examples decide the family, not the model.
+///
+/// The same request with two different sets of examples gives two different
+/// answers: this is the property that makes the search a search and not a
+/// second opinion from the model.
+#[test]
+fn the_examples_decide_the_family() {
+    let iso_positives = ["2026-10-29", "1999-01-31"];
+    let iso_negatives = ["29/10/2026", "31/01/1999"];
+    let report = search(
+        "validar data",
+        Examples {
+            positive: &iso_positives,
+            negative: &iso_negatives,
+        },
+    );
+    match report.outcome {
+        IntentSpec::Confident(CandidateSpec::Validate { kind, .. }) => {
+            assert_eq!(kind, ValidationKind::IsoDate);
+        }
+        other => panic!("unexpected outcome: {:?}", other),
+    }
+
+    // The same request with the Brazilian shape of a date has no family at
+    // all, so the search refuses to settle instead of guessing.
+    let br_positives = ["29/10/2026", "31/01/1999"];
+    let br_negatives = ["2026-10-29", "1999-01-31"];
+    let report = search(
+        "validar data",
+        Examples {
+            positive: &br_positives,
+            negative: &br_negatives,
+        },
+    );
+    match report.outcome {
+        IntentSpec::Ambiguous {
+            reason,
+            suggestions,
+        } => {
+            assert_eq!(reason, AmbiguityReason::InconsistentExamples);
+            assert!(suggestions.is_empty(), "a refused search suggests nothing");
+        }
+        other => panic!("unexpected outcome: {:?}", other),
+    }
+    assert_eq!(report.explored, report.rejected);
+}
+
+/// A shape no family accepts is refused with nothing to show for it.
+#[test]
+fn a_shape_no_family_accepts_is_refused() {
+    let positives = ["29/10/2026", "31/01/1999"];
+    let negatives = ["2026-10-29", "1999-01-31"];
+    let report = search(
+        "validar data",
+        Examples {
+            positive: &positives,
+            negative: &negatives,
+        },
+    );
+
+    assert!(!report.is_confident());
+    assert_eq!(report.explored, report.rejected);
+    // The best candidate still matches none of the positives.
+    let best = report.ranked.get(0).expect("the ranking is not empty");
+    assert_eq!(best.positives_matched, 0);
+    assert_eq!(best.negatives_rejected, 2);
+}
+
+/// Two values of the same family, one demanded to match and the other to be
+/// refused, leave the search with no answer.
+///
+/// The family that accepts the first value accepts the second one as well, so
+/// no candidate can satisfy both demands at once.
+#[test]
+fn two_values_of_one_family_cannot_be_split() {
+    let positives = ["123.456.789-09"];
+    let negatives = ["987.654.321-00"];
+    let report = search(
+        "validar CPF",
+        Examples {
+            positive: &positives,
+            negative: &negatives,
+        },
+    );
+
+    match report.outcome {
+        IntentSpec::Ambiguous {
+            reason,
+            suggestions,
+        } => {
+            assert_eq!(reason, AmbiguityReason::InconsistentExamples);
+            assert!(suggestions.is_empty());
+        }
+        other => panic!("unexpected outcome: {:?}", other),
+    }
+    // The family is the right one, and it is the examples that rule it out.
+    let best = report.ranked.get(0).expect("the ranking is not empty");
+    assert_eq!(best.positives_matched, 1);
+    assert_eq!(best.negatives_rejected, 0);
+}
+
+/// The quoting of the examples is enough to tell two extraction families
+/// apart.
+#[test]
+fn the_quoting_of_the_examples_picks_the_family() {
+    let positives = ["\"value\"", "\"outro\""];
+    let negatives = ["[value]", "[outro]"];
+    let report = search(
+        "extrair o texto",
+        Examples {
+            positive: &positives,
+            negative: &negatives,
+        },
+    );
+
+    match report.outcome {
+        IntentSpec::Confident(CandidateSpec::Extract { kind, .. }) => {
+            assert_eq!(kind, ExtractionKind::Quoted);
+        }
+        other => panic!("unexpected outcome: {:?}", other),
+    }
 }

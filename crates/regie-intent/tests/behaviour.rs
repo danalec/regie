@@ -2,8 +2,8 @@
 
 use proptest::prelude::*;
 use regie_core::spec::{
-    CandidateSpec, CharsetPolicy, ExtractionKind, IntentSpec, PatternTemplate, Strictness,
-    ValidationKind,
+    AmbiguityReason, CandidateSpec, CharsetPolicy, ExtractionKind, IntentSpec, PatternTemplate,
+    Strictness, ValidationKind,
 };
 use regie_intent::weights;
 use regie_intent::IntentModel;
@@ -171,6 +171,119 @@ fn the_vocabulary_is_sorted() {
             pair[0],
             pair[1]
         );
+    }
+}
+
+/// A request that sits on a family boundary is answered with a valid
+/// specification that answers a different question.
+///
+/// The model chooses one value out of a closed enumeration, so a wrong guess
+/// is not an error: it is a well formed specification for another family.
+/// This is the sharpest edge of the layer, and the behaviour is pinned here
+/// so a future change to the weights cannot move it silently.
+#[test]
+fn a_wrong_guess_is_a_valid_specification_for_another_family() {
+    let model = IntentModel::embedded();
+    match model.interpret("extrair a data no formato ISO") {
+        IntentSpec::Confident(CandidateSpec::Validate { kind, .. }) => {
+            assert_eq!(kind, ValidationKind::IsoDate);
+        }
+        other => panic!("unexpected specification {:?}", other),
+    }
+
+    // The specification is a *validation*, so it is anchored: the date inside
+    // a sentence is refused, even though the request asked to extract it.
+    let spec = model.interpret("extrair a data no formato ISO");
+    let candidate = match spec {
+        IntentSpec::Confident(candidate) => candidate,
+        other => panic!("unexpected specification {:?}", other),
+    };
+    let regex = regie_core::Regex::from_spec(&candidate).expect("should compile");
+    assert!(regex.is_match(b"2026-10-29"));
+    assert!(!regex.is_match(b"the date is 2026-10-29"));
+}
+
+/// A request the model cannot settle on carries the candidates it weighed.
+#[test]
+fn a_conflicting_request_carries_its_candidates() {
+    let model = IntentModel::embedded();
+    match model.interpret("validar numero") {
+        IntentSpec::Ambiguous {
+            reason,
+            suggestions,
+        } => {
+            assert_eq!(reason, AmbiguityReason::ConflictingKinds);
+            assert_eq!(suggestions.len(), 3);
+            let kinds: Vec<ValidationKind> = suggestions
+                .iter()
+                .filter_map(|candidate| match candidate {
+                    CandidateSpec::Validate { kind, .. } => Some(*kind),
+                    _ => None,
+                })
+                .collect();
+            assert!(kinds.contains(&ValidationKind::Integer));
+            assert!(kinds.contains(&ValidationKind::PortugueseNif));
+            assert!(kinds.contains(&ValidationKind::BrazilianPhone));
+        }
+        other => panic!("unexpected specification {:?}", other),
+    }
+}
+
+/// A request that is not a request at all comes back with no candidate.
+#[test]
+fn a_request_without_a_candidate_carries_nothing() {
+    let model = IntentModel::embedded();
+    match model.interpret("asdkjhaskjdhaskjdh") {
+        IntentSpec::Ambiguous {
+            reason,
+            suggestions,
+        } => {
+            assert_eq!(reason, AmbiguityReason::LowConfidence);
+            assert!(suggestions.is_empty());
+        }
+        other => panic!("unexpected specification {:?}", other),
+    }
+}
+
+/// Every family the model can reach is a real family of the specification.
+#[test]
+fn the_reachable_families_are_real() {
+    let model = IntentModel::embedded();
+    for request in [
+        "validar CNPJ",
+        "validar CPF",
+        "validar NIF",
+        "validar telefone brasileiro",
+        "validar CEP",
+        "validar email",
+        "extrair as palavras entre aspas",
+        "extrair o numero do processo",
+        "bloquear a palavra urgente",
+        "check if this is a valid email address",
+    ] {
+        match model.interpret(request) {
+            IntentSpec::Confident(candidate) => match candidate {
+                CandidateSpec::Validate { kind, .. } => {
+                    assert!(
+                        regie_core::spec::VALIDATION_KINDS.contains(&kind),
+                        "request {:?} produced {:?}",
+                        request,
+                        kind
+                    );
+                }
+                CandidateSpec::Extract { kind, .. } => {
+                    assert!(
+                        regie_core::spec::EXTRACTION_KINDS.contains(&kind),
+                        "request {:?} produced {:?}",
+                        request,
+                        kind
+                    );
+                }
+                CandidateSpec::Filter { .. } => {}
+                CandidateSpec::Custom { .. } => {}
+            },
+            other => panic!("request {:?} produced {:?}", request, other),
+        }
     }
 }
 
