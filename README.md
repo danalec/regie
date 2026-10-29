@@ -30,6 +30,34 @@ into the engine, because it has no way to express any.
    regie-codec ──► an `RGDF` blob linked into the firmware
 ```
 
+## Try it in one minute
+
+Two commands, from the repository root. The first matches a pattern; the
+second turns a sentence into a specification.
+
+```console
+$ cargo run -p regie-cli --bin regie -- match '(\w+)@(\w+\.\w+)' 'mail: ana@corp.com'
+match: 6..18 "ana@corp.com"
+group 1: 6..9 "ana"
+group 2: 10..18 "corp.com"
+
+$ cargo run -p regie-cli --bin regie -- intent 'validar CPF'
+summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
+{"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
+```
+
+Every example in the project is collected in
+[docs/EXAMPLES.md](docs/EXAMPLES.md), which starts with the whole picture and
+then links to a gallery per crate:
+
+| gallery | what it covers |
+|---|---|
+| [regie-core](crates/regie-core/EXAMPLES.md) | the dialect, capture groups, specifications, refusals, limits, the DFA, the error type |
+| [regie-intent](crates/regie-intent/EXAMPLES.md) | interpreting a request, the ambiguity path, the model profile |
+| [regie-search](crates/regie-search/EXAMPLES.md) | searching with examples, discriminating between candidates, refusing to settle |
+| [regie-codec](crates/regie-codec/EXAMPLES.md) | the artifact layout, the round trip, a corrupted artifact |
+| [regie-cli](crates/regie-cli/EXAMPLES.md) | every subcommand, and scripting with the exit codes |
+
 ## The crates
 
 | crate | what it does | depends on |
@@ -171,6 +199,10 @@ $ regie search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+rank 2: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+rank 3: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+rank 4: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
+explored: 64 candidates, 52 rejected
 
 $ regie dfa '^ana@corp\.com$' ana.rdf
 wrote 558 bytes to ana.rdf (14 states, 10 byte classes)
@@ -204,9 +236,12 @@ covers all of them plus the host platforms.
 
 ## Documentation
 
+* [docs/EXAMPLES.md](docs/EXAMPLES.md) — the way in: the whole project on one
+  page, then a gallery per crate.
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the engine works, and
   why it is built this way.
-* [docs/SYNTAX.md](docs/SYNTAX.md) — the complete dialect.
+* [docs/SYNTAX.md](docs/SYNTAX.md) — the complete dialect, with a catalogue of
+  what it accepts and what it refuses.
 * [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — the measured numbers, and the
   comparison with `regex-automata`.
 * [docs/EVOLUTION.md](docs/EVOLUTION.md) — what comes next, and what is
@@ -220,6 +255,7 @@ covers all of them plus the host platforms.
 |---|---|
 | `cargo test --workspace` | 171 unit, integration and documentation tests |
 | `tools/differential_test.py` | 21,323 cases against Python's `re` |
+| `tools/check_examples.py` | every output quoted in the documentation |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
 | `fuzz/` | two fuzz targets: the parser and the compiler |
 | `cargo bench` | the Criterion suite of `regie-core` |

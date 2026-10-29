@@ -5,6 +5,7 @@ target-parent/
 target-agent-*/
 target-differential/
 target-embedded/
+target-examples/
 
 # The coverage reports.
 coverage.json

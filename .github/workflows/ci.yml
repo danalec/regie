@@ -182,6 +182,27 @@ jobs:
         run: python tools/differential_test.py --cases 20000
 
   # ---------------------------------------------------------------------------
+  # Every output that the documentation quotes is run and compared, so that a
+  # gallery cannot drift away from the code it describes.
+  # ---------------------------------------------------------------------------
+  examples:
+    name: examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the documented outputs
+        run: python tools/check_examples.py
+
+  # ---------------------------------------------------------------------------
   # Coverage of the core engine.
   # ---------------------------------------------------------------------------
   coverage:

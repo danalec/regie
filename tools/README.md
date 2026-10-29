@@ -1,17 +1,25 @@
-# Intent tooling
+# Tools
 
-`train_intent.py` trains the intent micro-model of `regie-intent` and writes
-the quantized weights into the crate.
+The offline tools of the project. Every one of them uses the Python standard
+library only: no numpy, no pandas, no network access.
+
+| tool | what it does |
+|---|---|
+| [`train_intent.py`](train_intent.py) | trains the intent micro-model and writes the quantized weights into the crate |
+| [`differential_test.py`](differential_test.py) | compares the engine against Python's `re` on tens of thousands of cases |
+| [`check_examples.py`](check_examples.py) | runs every output that the documentation quotes and compares it with what is written down |
+| [`add_serde_derives.py`](add_serde_derives.py) | adds the serde derives to the specification types |
+
+## The trainer
 
 ```
 python tools/train_intent.py
 ```
 
-The script uses the standard library only - no numpy, no pandas, no network
-access - and is fully deterministic: the same dataset always produces the
-same `crates/regie-intent/src/weights.rs`, byte for byte.
+The script is fully deterministic: the same dataset always produces the same
+`crates/regie-intent/src/weights.rs`, byte for byte.
 
-## What it does
+### What it does
 
 1. Reads `datasets/intent_train.jsonl`.
 2. Splits it into a training part and a held-out part.  The split is
@@ -33,7 +41,7 @@ same `crates/regie-intent/src/weights.rs`, byte for byte.
 7. Reports the accuracy on the held-out split and writes
    `crates/regie-intent/src/weights.rs`.
 
-## The report
+### The report
 
 ```
 regie-intent training report
@@ -60,7 +68,10 @@ the right one.  `held-out resolved` is the share that is also confident
 enough to be accepted; the rest are refused as ambiguous, which is the
 intended behaviour for a request the model is not sure about.
 
-## Regenerating the dataset
+The corpus is generated from templates, so these numbers say very little
+about real requests.
+
+### Regenerating the dataset
 
 The dataset is generated from the corpus table at the top of the script:
 
@@ -68,10 +79,45 @@ The dataset is generated from the corpus table at the top of the script:
 python tools/train_intent.py --emit-dataset
 ```
 
-## Keeping the two implementations in sync
+### Keeping the two implementations in sync
 
 The feature extractor in `tools/train_intent.py` and the one in
 `crates/regie-intent/src/features.rs` are mirrors of each other.  They have
 to agree exactly, otherwise the model would be scored with features it was
 never trained on.  When one of them changes, change the other in the same
 commit and re-run the trainer.
+
+## The differential test
+
+```
+python tools/differential_test.py --cases 20000
+```
+
+The harness runs the same patterns through the engine and through Python's
+`re`, in both directions: every case where the engine matches has to match in
+Python as well, and every case where the engine refuses the pattern has to be
+refused there too.  The current result is zero mismatches over 21,323 cases.
+
+## The example checker
+
+```
+python tools/check_examples.py
+```
+
+The galleries quote the output of the programs they document.  A quoted output
+goes stale the moment the code changes, and a stale quote is worse than no
+quote, because a reader trusts it.
+
+This tool reads every Markdown file that quotes an output, runs the command,
+and compares what it observed with what the file claims.  A mismatch is a
+failure, and the continuous integration runs it on every build.
+
+The commands that write a file run in a temporary directory, so the check
+never leaves anything behind in the repository.
+
+## The serde helper
+
+`add_serde_derives.py` adds the `Serialize` and `Deserialize` derives to the
+specification types of `regie-core`.  It is a one-off maintenance script: run
+it when a new type has to be serializable, and check the diff before
+committing it.
