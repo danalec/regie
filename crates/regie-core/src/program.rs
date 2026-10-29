@@ -6,7 +6,7 @@
 
 use crate::class::ClassTable;
 use crate::error::{RegexError, Result};
-use crate::hir::{HirArena, HirNode};
+use crate::hir::{HirArena, HirNode, MAX_HIR_NODES};
 use crate::spec::CandidateSpec;
 use crate::Flags;
 
@@ -229,14 +229,33 @@ impl<'a> Compiler<'a> {
         }
         // An unbounded tail becomes a loop.
         if max.is_none() {
-            let split = self.push(Op::Split, 0, 0)?;
-            let body = self.emit_node(arena, child, split)?;
-            if greedy {
-                self.set(split, body, cont);
+            if nullable(arena, child, 0) {
+                // A body that can match nothing needs the `(body+)?` shape.
+                // The entry and the way back are two instructions, so a body
+                // that matches nothing falls through to the exit instead of
+                // spinning in the loop, and the priority order stays the one
+                // the pattern asks for.
+                let entry = self.push(Op::Split, 0, 0)?;
+                let back = self.push(Op::Split, 0, 0)?;
+                let body = self.emit_node(arena, child, back)?;
+                if greedy {
+                    self.set(entry, body, cont);
+                    self.set(back, body, cont);
+                } else {
+                    self.set(entry, cont, body);
+                    self.set(back, cont, body);
+                }
+                cont = entry;
             } else {
-                self.set(split, cont, body);
+                let split = self.push(Op::Split, 0, 0)?;
+                let body = self.emit_node(arena, child, split)?;
+                if greedy {
+                    self.set(split, body, cont);
+                } else {
+                    self.set(split, cont, body);
+                }
+                cont = split;
             }
-            cont = split;
         }
         // Mandatory repetitions.
         for _ in 0..min {
@@ -244,6 +263,33 @@ impl<'a> Compiler<'a> {
             cont = body;
         }
         Ok(cont)
+    }
+}
+
+/// Whether the node can match the empty string.
+///
+/// The answer decides the shape of a repetition: a body that can match
+/// nothing is compiled as `(body+)?`, so that an iteration that consumes
+/// nothing ends the repetition instead of spinning in it.
+fn nullable(arena: &HirArena, node: u16, depth: usize) -> bool {
+    // The nesting of the tree is bounded, and a tree deeper than that is
+    // refused long before this point.  A node too deep to look at is treated
+    // as if it could not match nothing, which keeps the compiler safe.
+    if depth > MAX_HIR_NODES {
+        return false;
+    }
+    match arena.get(node) {
+        HirNode::Empty => true,
+        HirNode::LiteralByte(_) | HirNode::Class(_) | HirNode::Any => false,
+        HirNode::Assert(_) => true,
+        HirNode::Concat(left, right) => {
+            nullable(arena, left, depth + 1) && nullable(arena, right, depth + 1)
+        }
+        HirNode::Alternate(left, right) => {
+            nullable(arena, left, depth + 1) || nullable(arena, right, depth + 1)
+        }
+        HirNode::Repeat { child, min, .. } => min == 0 || nullable(arena, child, depth + 1),
+        HirNode::Capture { child, .. } => nullable(arena, child, depth + 1),
     }
 }
 

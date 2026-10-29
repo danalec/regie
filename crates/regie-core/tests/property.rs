@@ -29,6 +29,18 @@ fn input_strategy() -> impl Strategy<Value = Vec<u8>> {
     )
 }
 
+/// A pattern whose repetition can be applied to a body that matches nothing.
+///
+/// These are the shapes that broke the engine before it learned to compile
+/// a repetition over an empty body as `(body+)?`.
+fn nullable_repetition_strategy() -> impl Strategy<Value = String> {
+    let body = prop::sample::select(vec![
+        "a*", "a+", "a?", "b{0,3}", "(a|)", "(|a)", "a*?", "(a*)*",
+    ]);
+    let outer = prop::sample::select(vec!["*", "+", "?", "*?", "+?", "{0,2}"]);
+    (body, outer).prop_map(|(body, outer)| format!("({body}){outer}"))
+}
+
 proptest! {
     #[test]
     fn compiling_never_panics(pattern in pattern_strategy()) {
@@ -82,5 +94,30 @@ proptest! {
         let first = re.find(&input);
         let second = re.find(&input);
         prop_assert_eq!(first, second);
+    }
+
+    #[test]
+    fn a_repetition_over_an_empty_body_terminates(
+        pattern in nullable_repetition_strategy(),
+        input in input_strategy(),
+    ) {
+        // The call has to come back at all: an iteration that consumes
+        // nothing must end the repetition instead of spinning in it.
+        let re = Regex::new(&pattern).unwrap();
+        let found = re.find(&input);
+        if let Some(hit) = found {
+            prop_assert!(hit.start <= hit.end);
+            prop_assert!(hit.end <= input.len());
+        }
+    }
+
+    #[test]
+    fn a_repetition_over_an_empty_body_agrees_with_itself(
+        pattern in nullable_repetition_strategy(),
+        input in input_strategy(),
+    ) {
+        let re = Regex::new(&pattern).unwrap();
+        prop_assert_eq!(re.find(&input), re.find(&input));
+        prop_assert_eq!(re.is_match(&input), re.find(&input).is_some());
     }
 }

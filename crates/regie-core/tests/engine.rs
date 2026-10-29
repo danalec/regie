@@ -332,3 +332,125 @@ fn a_flag_directive_applies_to_the_rest_of_the_group() {
     assert!(re.is_match(b"aB"));
     assert!(!re.is_match(b"Ab"));
 }
+
+#[test]
+fn a_repetition_over_an_empty_body_stops_at_the_empty_match() {
+    // The body of the repetition can match nothing, so the engine compiles
+    // the whole thing as `(body+)?`: an iteration that consumes nothing ends
+    // the repetition instead of spinning in it.  The answer is the one a
+    // backtracking engine gives, and the two agree on the span.
+    let cases: [(&str, &str, (usize, usize)); 6] = [
+        ("(b*?)*", "b", (0, 0)),
+        ("(?:(b)*?)*", "b", (0, 0)),
+        ("((b)*?)*", "b", (0, 0)),
+        ("(?:(b){1,3}?)*?", "b", (0, 0)),
+        ("((b){1,3}?)*?", "b", (0, 0)),
+        ("(((b){1,3}?)*?)*", "b", (0, 0)),
+    ];
+    for (pattern, input, expected) in cases {
+        let re = Regex::new(pattern).expect("pattern should compile");
+        let hit = re.find(input.as_bytes()).expect("should match");
+        assert_eq!((hit.start, hit.end), expected, "pattern {pattern}");
+    }
+}
+
+#[test]
+fn a_repetition_over_an_empty_body_still_takes_the_greedy_span() {
+    // The same shape, but greedy: the body is tried first, so the span
+    // covers the text that the body can take.
+    let cases: [(&str, &str, (usize, usize)); 6] = [
+        ("(a*)*", "a", (0, 1)),
+        ("(a+)*", "a", (0, 1)),
+        ("(a?)*", "a", (0, 1)),
+        ("((a*)*)*", "a", (0, 1)),
+        ("(?:a*)*", "a", (0, 1)),
+        ("((?:a?)*)*", "a", (0, 1)),
+    ];
+    for (pattern, input, expected) in cases {
+        let re = Regex::new(pattern).expect("pattern should compile");
+        let hit = re.find(input.as_bytes()).expect("should match");
+        assert_eq!((hit.start, hit.end), expected, "pattern {pattern}");
+    }
+}
+
+#[test]
+fn a_repetition_over_an_empty_body_does_not_swallow_the_rest() {
+    // The loop has to give the rest of the pattern its chance: after the
+    // empty iterations the `b` is still found.
+    let re = Regex::new("(a*)*b").expect("should compile");
+    let hit = re.find(b"b").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 1));
+
+    let re = Regex::new("((a)|(a))*b").expect("should compile");
+    let input = "a".repeat(32);
+    let mut haystack = input.clone();
+    haystack.push('b');
+    let hit = re.find(haystack.as_bytes()).expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 33));
+}
+
+#[test]
+fn an_alternation_inside_a_repetition_prefers_the_left_branch() {
+    let re = Regex::new("(a|a)*$").expect("should compile");
+    let hit = re.find(b"a").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 1));
+
+    let re = Regex::new("(|a)*").expect("should compile");
+    let hit = re.find(b"a").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+}
+
+#[test]
+fn nested_groups_report_every_span() {
+    let re = Regex::new("((a)(b(c)))").expect("should compile");
+    let caps = re.captures(b"abc").expect("should match");
+    assert_eq!(caps.len(), 5);
+    assert_eq!(caps.get(0).map(|g| (g.start, g.end)), Some((0, 3)));
+    assert_eq!(caps.get(1).map(|g| (g.start, g.end)), Some((0, 3)));
+    assert_eq!(caps.get(2).map(|g| (g.start, g.end)), Some((0, 1)));
+    assert_eq!(caps.get(3).map(|g| (g.start, g.end)), Some((1, 3)));
+    assert_eq!(caps.get(4).map(|g| (g.start, g.end)), Some((2, 3)));
+}
+
+#[test]
+fn a_lazy_quantifier_takes_the_shortest_span() {
+    let re = Regex::new("a{2,4}?b").expect("should compile");
+    let hit = re.find(b"aaab").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 4));
+
+    let re = Regex::new("a{2,4}b").expect("should compile");
+    let hit = re.find(b"aaab").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 4));
+
+    let re = Regex::new("a+?b").expect("should compile");
+    let hit = re.find(b"aaab").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 4));
+}
+
+#[test]
+fn a_counted_repetition_of_zero_is_an_empty_match() {
+    let re = Regex::new("a{0}").expect("should compile");
+    let hit = re.find(b"bbb").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+}
+
+#[test]
+fn a_posix_class_is_read_as_a_class_of_bytes() {
+    // The first `]` closes the class, so this is the class of the bytes
+    // `[`, `:`, `a`, `l`, `p` and `h`, followed by a literal `]`.
+    let re = Regex::new("[[:alpha:]]").expect("should compile");
+    assert!(re.is_match(b"a]"));
+    assert!(!re.is_match(b"a"));
+}
+
+#[test]
+fn an_anchor_inside_a_group_only_anchors_that_group() {
+    let re = Regex::new("^(a*)*$").expect("should compile");
+    let hit = re.find(b"").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+
+    // The `^` is a line anchor here, and the `$` is a text anchor.
+    let re = Regex::new("(?m)^b$").expect("should compile");
+    assert!(re.is_match(b"a\nb\nc"));
+    assert!(!re.is_match(b"ab"));
+}
