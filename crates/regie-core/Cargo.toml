@@ -27,5 +27,9 @@ criterion = { workspace = true }
 # The reference engine the benchmarks compare against.
 regex-automata = { workspace = true }
 
+[[bench]]
+name = "engine"
+harness = false
+
 [lints]
 workspace = true
