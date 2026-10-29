@@ -1,0 +1,6 @@
+# Normalize the line endings so that the same file hashes the same way on
+# every platform the CI builds on.
+* text=auto eol=lf
+
+# The precompiled DFA artifact is binary and must never be rewritten.
+crates/regie-codec/examples/assets/*.rdf binary
