@@ -12,7 +12,14 @@ dialects differ on purpose:
   `regie` unless the dot-all flag is set;
 * Python supports possessive quantifiers (`a*+`), `regie` rejects them;
 * Python reads `\01` as an octal escape, `regie` reads `\0` as NUL and
-  treats the digit as a literal.
+  treats the digit as a literal;
+* Python supports backreferences (`\1`) and named groups (`(?<name>x)`),
+  `regie` rejects them;
+* Python reads `[[:alpha:]]` as a class of letters, `regie` reads the first
+  `]` as the end of the class, so the two match different bytes;
+* Python 3.11 refuses a global flag directive that is not at the start of the
+  expression, `regie` accepts one anywhere inside a group;
+* Python supports a hundred capture groups, `regie` supports eight.
 
 Usage:
 
@@ -105,6 +112,47 @@ PATTERNS = [
     # The capture groups: the engine accepts as many as the limit allows.
     r"(a)(b)(c)(d)(e)(f)(g)(h)",
     r"((a)(b)(c)(d)(e)(f)(g))",
+    # The hard shapes: a group under a repetition of a group, an alternation
+    # under a repetition, an alternation that overlaps, an anchor inside a
+    # group, and the lazy variant of every quantifier.
+    r"(a(b(c)))",
+    r"((a|b)+c)*",
+    r"(a|ab)(c|bcd)",
+    r"^(a|b)*$",
+    r"(?i)(abc|def)",
+    r"(?i:[a-f]+)x",
+    r"(?s)(a.b)",
+    r"(?m)(^a)",
+    r"[^a-c]+",
+    r"[\d\s]+",
+    r"[^\w]+",
+    r"\b\w+\b",
+    r"(?:ab|cd|ef)+",
+    r"a{1,3}b{1,3}",
+    r"a{1,3}?b{1,3}?",
+    r"(a{2,4})+",
+    r"x(y(z)?)?w",
+    r"(a*)*b",
+    r"(a*)+b",
+    r"(|a)b",
+    r"a(|b)c",
+    r"^$",
+    r"^",
+    r"$",
+    r"\B\w",
+    r"\w\B",
+    r"[\]]",
+    r"[.]",
+    r"(a|b)*c",
+    r"([a-z]+)([0-9]*)",
+    r"((a|b)(c|d))+",
+    r"(a(b)?)+c",
+    # The constructs Python has and the engine refuses on purpose.  They are
+    # in the corpus so that the refusal is exercised, and the harness knows
+    # to skip the comparison.
+    r"(a)\1",
+    r"(?<name>a)",
+    r"a*+",
 ]
 
 INPUTS = [
@@ -138,23 +186,58 @@ INPUTS = [
     "ABC",
     "aBc",
     "a\nb",
+    # The harder subjects: an empty subject with a line break, a subject that
+    # ends with one, mixed case, punctuation, and the shapes that make a
+    # greedy and a lazy quantifier disagree.
+    "\n",
+    "a\n",
+    "ab\n",
+    "ABC abc AbC",
+    "a-b_c",
+    "...",
+    "-",
+    "aaaa",
+    "abababab",
+    "2026-10-29",
+    "ana@corp.com",
+    "  ",
+    "\t",
+    "a\tb",
+    "<a><b>",
+    "aaaaX",
+    "abcabcabc",
 ]
 
 
 def random_pattern(rng: random.Random, depth: int = 0) -> str:
     """Builds a random pattern that is usually valid in both dialects."""
     roll = rng.random()
-    if depth >= 3 or roll < 0.30:
+    if depth >= 4 or roll < 0.22:
         return rng.choice("ab01x")
-    if roll < 0.50:
+    if roll < 0.42:
         return random_pattern(rng, depth + 1) + random_pattern(rng, depth + 1)
-    if roll < 0.65:
+    if roll < 0.54:
         return "(" + random_pattern(rng, depth + 1) + "|" + random_pattern(rng, depth + 1) + ")"
-    if roll < 0.80:
-        return "(" + random_pattern(rng, depth + 1) + ")" + rng.choice(["*", "+", "?", "{1,2}", "{2}", "{1,3}?"])
+    if roll < 0.63:
+        return "(?:" + random_pattern(rng, depth + 1) + "|" + random_pattern(rng, depth + 1) + ")"
+    if roll < 0.74:
+        return (
+            "("
+            + random_pattern(rng, depth + 1)
+            + ")"
+            + rng.choice(
+                ["*", "+", "?", "{1,2}", "{2}", "{1,3}?", "*?", "+?", "??", "{2,4}?"]
+            )
+        )
+    if roll < 0.83:
+        return "[" + rng.choice(["a-z", "0-9", "^a-c", "abc", "a-z0-9", "a-cx", "^0-9"]) + "]"
     if roll < 0.90:
-        return "[" + rng.choice(["a-z", "0-9", "^a-c", "abc", "a-z0-9"]) + "]"
-    return random_pattern(rng, depth + 1) + rng.choice(["\\d", "\\w", "\\s", "."])
+        return random_pattern(rng, depth + 1) + rng.choice(
+            ["\\d", "\\w", "\\s", ".", "\\D", "\\W", "\\S"]
+        )
+    if roll < 0.95:
+        return rng.choice(["^", "$", "\\b", "\\B"]) + random_pattern(rng, depth + 1)
+    return random_pattern(rng, depth + 1) + rng.choice(["\\.", "\\-", "\\*", "\\+"])
 
 
 def build_corpus(rng: random.Random, cases: int) -> list[tuple[str, str]]:
@@ -163,10 +246,10 @@ def build_corpus(rng: random.Random, cases: int) -> list[tuple[str, str]]:
         for text in INPUTS:
             corpus.append((pattern, text))
     # Random fuzzing over a small alphabet.
-    alphabet = "abc01 .-"
+    alphabet = "ab01xX .-_@"
     for _ in range(cases):
         pattern = random_pattern(rng)
-        text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 12)))
+        text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 20)))
         corpus.append((pattern, text))
     return corpus
 
@@ -175,14 +258,21 @@ POSSESSIVE = re.compile(r"[*+?]\+")
 OCTAL = re.compile(r"\\0[0-7]")
 GLOBAL_FLAG = re.compile(r"\(\?[aiLmsux-]*\)")
 CAPTURE_GROUP = re.compile(r"(?<!\\)\((?!\?)")
+BACKREFERENCE = re.compile(r"\\[1-9]")
+NAMED_GROUP = re.compile(r"\(\?P?[<']")
+END_ANCHOR = re.compile(r"(?<!\\)\$")
 
 
-def dialect_difference(pattern: str) -> str | None:
+def dialect_difference(pattern: str, text: str) -> str | None:
     """Returns a reason when the two dialects differ on purpose."""
     if POSSESSIVE.search(pattern):
         return "possessive quantifier"
     if OCTAL.search(pattern):
         return "octal escape"
+    if BACKREFERENCE.search(pattern):
+        return "backreference"
+    if NAMED_GROUP.search(pattern):
+        return "named group"
     # Python 3.11 refuses a global flag directive that is not at the start of
     # the expression.  The engine accepts one anywhere in a group.
     for match in GLOBAL_FLAG.finditer(pattern):
@@ -191,6 +281,10 @@ def dialect_difference(pattern: str) -> str | None:
     # The engine supports eight capture groups; Python supports a hundred.
     if len(CAPTURE_GROUP.findall(pattern)) > 8:
         return "capture group limit"
+    # Python's `$` also matches before a trailing newline; the engine's does
+    # not.  The two are only comparable when the subject does not end with one.
+    if END_ANCHOR.search(pattern) and text.endswith("\n"):
+        return "trailing newline"
     return None
 
 
@@ -269,7 +363,7 @@ def main() -> int:
     dialect = 0
     checked = 0
     for (pattern, text), line in zip(corpus, lines):
-        reason = dialect_difference(pattern)
+        reason = dialect_difference(pattern, text)
         if reason is not None:
             dialect += 1
             continue

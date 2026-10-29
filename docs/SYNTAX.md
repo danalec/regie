@@ -128,6 +128,33 @@ a+?      lazy
 The upper bound is at most **255**. A larger one is refused with
 `RepetitionTooLarge`.
 
+### A repetition whose body can match nothing
+
+A quantifier applied to a body that can match the empty string is the one
+place where the shape of the pattern matters, and the engine gives it a
+defined answer.
+
+```text
+(b*?)*   on "b"   the empty match at 0..0
+(b*)*    on "b"   the match at 0..1
+```
+
+The lazy form tries the shortest body first, and the shortest body is the
+empty one, so the repetition ends immediately and the match is empty. The
+greedy form tries the longest body first, so it takes the `b` and the match
+covers it.
+
+The engine compiles a repetition whose body can match nothing as the shape
+`(body+)?`: the way into the body and the way back are two separate
+instructions, so an iteration that consumes nothing ends the repetition
+instead of spinning in it. This is the same construction Go's `regexp`
+package uses, and it is what makes the answer above the same one a
+backtracking engine gives.
+
+The rule applies at every depth. `(?:(b)*?)*` and `(((b){1,3}?)*?)*` behave
+like `(b*?)*`, because the body of the outer repetition can also match
+nothing.
+
 ## Anchors and assertions
 
 | construct | meaning |
@@ -149,7 +176,8 @@ are inputs, not patterns: the left one matches, the right one does not.
 
 In the tables, `<SP>` is a space, `<TAB>` a tab, `<LF>` a line feed, `<CR>` a
 carriage return, `<FF>` a form feed, `<VT>` a vertical tab, `<BEL>` a bell
-(0x07), `<ESC>` an escape (0x1b) and `<NUL>` the null byte.
+(0x07), `<ESC>` an escape (0x1b) and `<NUL>` the null byte. `<empty>` is the
+text of no bytes at all.
 
 ### Literals and byte escapes
 
@@ -182,6 +210,13 @@ carriage return, `<FF>` a form feed, `<VT>` a vertical tab, `<BEL>` a bell
 | a trailing `-` is a literal | `[a-]` | `a` | `b` |
 | a metacharacter inside a class is literal | `[.]` | `.` | `x` |
 | an escape inside a class | `[\x41]` | `A` | `B` |
+| a POSIX class, read as ordinary bytes | `[[:alpha:]]` | `a]` | `a` |
+
+The dialect has no POSIX classes, and `[[:alpha:]]` is **not** refused: the
+first `]` closes the class, so the pattern is the class of the bytes `[`,
+`:`, `a`, `l`, `p`, `h` followed by a literal `]`. It matches `a]` and not
+`a`, where a POSIX class would match a single letter. Python's `re` reads the
+same pattern as a POSIX class; this one does not.
 
 ### The shorthands
 
@@ -251,6 +286,30 @@ carriage return, `<FF>` a form feed, `<VT>` a vertical tab, `<BEL>` a bell
 The `i` flag folds the case of a literal and of a class alike: `(?i)[a-z]`
 matches `Q`.
 
+### Harder combinations
+
+| syntax | pattern | matches | does not match |
+|---|---|---|---|
+| a scoped `i` flag on a group | `(?i:^abc$)` | `ABC` | `ABD` |
+| an `i` flag for the rest of the pattern | `(?i)^abc$` | `ABC` | `ABD` |
+| a scoped `m` flag | `(?m:^b$)` | `a<LF>b` | `xb` |
+| a scoped `s` flag | `(?s:a.c)` | `a<LF>c` | `ab` |
+| a nested capturing group | `(a(b)c)` | `abc` | `ac` |
+| a group inside a repetition | `(ab)+` | `abab` | `ba` |
+| an alternation inside a group | `(cat\|dog)` | `dog` | `bird` |
+| an explicit zero repetition | `^a{0}$` | `<empty>` | `a` |
+| a repetition with an upper bound | `^a{2,3}$` | `aa` | `a` |
+| a negated class with a range | `[^0-9]` | `x` | `7` |
+| an escaped brace | `^\{a\}$` | `{a}` | `a` |
+| an empty alternation branch | `^a\|^$` | `a` | `b` |
+| a repetition of a group that matches empty | `^(a*)*$` | `<empty>` | `b` |
+
+A branch of an alternation may be empty. `^a|^$` matches `a`, and it also
+matches the empty text, because the second branch has nothing to match. A
+group that can match the empty text can be repeated: `^(a*)*$` matches the
+empty text, and its group holds nothing, because the repetition took the
+zero-length path.
+
 ## What the dialect refuses
 
 Every refusal is an explicit error with a position. The list is:
@@ -300,18 +359,33 @@ the command line tool adds in front of it.
 | a comment group | `(?#text)` | ``unsupported construct `comment group` at byte 2`` | a comment is not part of the grammar |
 | an unknown flag | `(?U)` | ``unsupported construct `flag` at byte 2`` | the engine has the three flags `i`, `m` and `s` |
 | an unknown group form | `(?z)` | `syntax error at byte 2: unrecognized group syntax` | a `(?` that names nothing known is a mistake |
+| an atomic group | `(?>x)` | `syntax error at byte 2: unrecognized group syntax` | the parser has no atomic group, and says only that the group syntax is unknown |
+| a conditional | `(?(1)x)` | `syntax error at byte 2: unrecognized group syntax` | the same reason: a `(?` that names nothing known is a mistake |
+| a named backreference | `(?P=name)` | ``unsupported construct `named group` at byte 2`` | the engine has numbered captures only |
+| an empty comment group | `(?#)` | ``unsupported construct `comment group` at byte 2`` | a comment is not part of the grammar |
 | a backreference | `\1` | ``unsupported construct `backreference` at byte 0`` | a backreference makes the match depend on what was matched before |
+| a backreference after a group | `(a)\1` | ``unsupported construct `backreference` at byte 3`` | the same reason, with the position of the backreference |
 | a code point escape | `\u0041` | ``unsupported construct `\u escape` at byte 0`` | the dialect is byte-based, so a code point has no meaning in it |
 | a Unicode property class | `\p{L}` | ``unsupported construct `Unicode property class` at byte 0`` | a property class needs a Unicode table the engine does not carry |
+| a negated property class | `\P{L}` | ``unsupported construct `Unicode property class` at byte 0`` | the same reason, with the opposite sense |
 | a possessive quantifier | `a*+` | `syntax error at byte 2: repeated quantifier` | a possessive quantifier is a different language, and the engine would rather say so |
+| a possessive quantifier on a group | `(ab)*+` | `syntax error at byte 5: repeated quantifier` | the same reason, on a group instead of a literal |
 | a quantifier with nothing to repeat | `*a` | `syntax error at byte 0: nothing to repeat` | a quantifier needs an atom in front of it |
 | an impossible bound | `a{3,2}` | `invalid character class at byte 1: repetition upper bound is smaller than the lower bound` | no repetition satisfies the bound |
+| a bound inverted inside a group | `(a{2,1})` | `invalid character class at byte 2: repetition upper bound is smaller than the lower bound` | the same reason, with the position of the bound inside the group |
 | a reversed range | `[z-a]` | `invalid character class at byte 0: character range is reversed` | the range is empty |
+| a reversed range in a negated class | `[^z-a]` | `invalid character class at byte 0: character range is reversed` | the negation does not change the diagnosis |
 | an empty class | `[]` | `invalid character class at byte 0: empty character class` | a class needs at least one byte |
 | a negated class closed by `]` | `[^]]` | `invalid character class at byte 0: empty character class` | the `]` closes the class, so nothing is left to negate |
 | an unknown escape of a letter | `\q` | `syntax error at byte 0: unknown escape sequence` | a typo must be reported, not matched |
+| the `\A` anchor | `\A` | `syntax error at byte 0: unknown escape sequence` | the dialect has only `^` and `$` for the ends of the text |
+| the `\z` anchor | `\z` | `syntax error at byte 0: unknown escape sequence` | the same reason |
+| the `\Z` anchor | `\Z` | `syntax error at byte 0: unknown escape sequence` | the same reason |
+| the `\G` anchor | `\G` | `syntax error at byte 0: unknown escape sequence` | the same reason |
 | an unclosed group | `(` | `syntax error at byte 1: unclosed group` | the group is never closed |
+| an unterminated group | `(ab` | `syntax error at byte 3: unclosed group` | the same reason, with the position where the text ran out |
 | an unmatched `)` | `abc)` | `syntax error at byte 3: unbalanced ')'` | there is no group for it to close |
+| a lone `)` | `)` | `syntax error at byte 0: unbalanced ')'` | the same reason, with the position of the bracket itself |
 | a trailing backslash | `abc\` | `syntax error at byte 3: trailing backslash` | the escape has no body |
 | a truncated hexadecimal escape | `\x4` | `syntax error at byte 0: truncated hexadecimal escape` | the escape needs two digits |
 | an invalid hexadecimal escape | `\xZZ` | `syntax error at byte 0: invalid hexadecimal escape` | `Z` is not a hexadecimal digit |
@@ -320,6 +394,15 @@ the command line tool adds in front of it.
 | nine capture groups | `(a)(b)(c)(d)(e)(f)(g)(h)(i)` | `pattern uses more than 8 capture groups` | the capture slots are a fixed array |
 | thirty-three levels of nesting | 33 levels of `(?:` | `pattern nests groups deeper than 32` | the parser is recursive, and its depth is bounded |
 | a bound over 255 | `a{256}` | `repetition bound exceeds 255` | the bound is compiled into a program of a known size |
+
+The four anchors of other engines are refused as unknown escapes: `\A`, `\z`,
+`\Z` and `\G` are not in the dialect, which has only `^` and `$` for the ends
+of the text. An atomic group and a conditional are refused as unknown group
+syntax, because the parser reads `(?`, finds nothing it knows and says so.
+
+A POSIX class is **not** in this list, because the engine does not refuse
+it: `[[:alpha:]]` is read as ordinary bytes and matches `a]` rather than
+`a`. See [Character classes](#character-classes).
 
 ## How the engine resolves a match
 
@@ -404,6 +487,9 @@ the input. With it, they match at the ends of the lines as well:
   cover the whole text.
 * **A `{` that does not open a valid bound is a literal.** `a{` matches
   `a{`, and `a{b}` matches `a{b}`.
+* **A POSIX class is not a class.** `[[:alpha:]]` is not refused: the first
+  `]` closes the class, so the pattern is the class of the bytes `[`, `:`,
+  `a`, `l`, `p`, `h` followed by a literal `]`. It matches `a]` and not `a`.
 * **A scoped flag group stays scoped.** `(?i:...)` turns the flag on for the
   group and for nothing else, so `a(?i:b)C` does not match `aBc`: the `C`
   that follows the group is still case-sensitive. Putting `(?i)` at the front
@@ -461,15 +547,28 @@ The examples are the galleries of the workspace:
 ## How the dialect compares with Python's `re`
 
 The dialect is checked against Python's `re` by a differential test
-(`tools/differential_test.py`) that compares **21,980** cases. The two
-dialects differ on purpose in four places:
+(`tools/differential_test.py`) that compares **24,589** cases. The two
+dialects differ in two kinds of way: they disagree about what a pattern both
+of them accept matches, and one of them accepts a pattern the other refuses.
+
+**What the two of them match differently:**
 
 | difference | Python | `regie` |
 |---|---|---|
 | `$` before a trailing newline | matches | does not match |
+| `\01` | an octal escape | `\0` is the null byte, `1` is a literal |
+| a POSIX class (`[[:alpha:]]`) | a class of letters | the class of the bytes `[`, `:`, `a`, `l`, `p`, `h` followed by a literal `]` |
+
+**What one of the two of them accepts and the other refuses:**
+
+| difference | Python | `regie` |
+|---|---|---|
 | `[^]]` | a `]` right after `^` is literal | the `]` has to be escaped |
 | a possessive quantifier (`a*+`) | accepted | refused |
-| `\01` | an octal escape | `\0` is the null byte, `1` is a literal |
+| a backreference (`\1`) | accepted | refused |
+| a named group (`(?<name>x)`) | accepted | refused |
+| a global flag directive that is not at the start | refused since Python 3.11 | accepted anywhere in a group |
+| more than eight capture groups | accepted | refused |
 
 Apart from those, the two agree: the test compares the spans of the matches,
 the cases where neither matches, and the cases where both refuse the
