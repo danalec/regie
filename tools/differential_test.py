@@ -85,6 +85,26 @@ PATTERNS = [
     r"[.]",
     r"[-a]+",
     r"[a-]+",
+    # The flag directives.  A scoped one has to stay scoped: the flag must
+    # not reach the pattern that follows the group.
+    r"(?i)abc",
+    r"(?i:abc)",
+    r"(?s)a.b",
+    r"(?s:a.b)",
+    r"(?m)^b",
+    r"(?m:^b)",
+    r"(?is)a.c",
+    r"(?i:a)b",
+    r"(?i:a)B",
+    r"(?-i:a)b",
+    r"(?m:^a\n)",
+    r"(?s:.)",
+    r"(?i:a)(?i:b)c",
+    r"a(?i:b)C",
+    r"(?i)a(?-i:b)c",
+    # The capture groups: the engine accepts as many as the limit allows.
+    r"(a)(b)(c)(d)(e)(f)(g)(h)",
+    r"((a)(b)(c)(d)(e)(f)(g))",
 ]
 
 INPUTS = [
@@ -115,6 +135,9 @@ INPUTS = [
     "the admin user",
     "CPF 123.456.789-09",
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaX",
+    "ABC",
+    "aBc",
+    "a\nb",
 ]
 
 
@@ -150,6 +173,8 @@ def build_corpus(rng: random.Random, cases: int) -> list[tuple[str, str]]:
 
 POSSESSIVE = re.compile(r"[*+?]\+")
 OCTAL = re.compile(r"\\0[0-7]")
+GLOBAL_FLAG = re.compile(r"\(\?[aiLmsux-]*\)")
+CAPTURE_GROUP = re.compile(r"(?<!\\)\((?!\?)")
 
 
 def dialect_difference(pattern: str) -> str | None:
@@ -158,6 +183,14 @@ def dialect_difference(pattern: str) -> str | None:
         return "possessive quantifier"
     if OCTAL.search(pattern):
         return "octal escape"
+    # Python 3.11 refuses a global flag directive that is not at the start of
+    # the expression.  The engine accepts one anywhere in a group.
+    for match in GLOBAL_FLAG.finditer(pattern):
+        if match.start() != 0:
+            return "global flag directive"
+    # The engine supports eight capture groups; Python supports a hundred.
+    if len(CAPTURE_GROUP.findall(pattern)) > 8:
+        return "capture group limit"
     return None
 
 
@@ -196,25 +229,27 @@ def main() -> int:
     binary = ROOT / "target-differential" / "debug" / "examples" / "differential.exe"
     if not binary.exists():
         binary = ROOT / "target-differential" / "debug" / "examples" / "differential"
+    # The helper is always rebuilt: a stale binary would compare the current
+    # patterns against an older engine and report differences that no longer
+    # exist.
+    print("building the differential helper...", file=sys.stderr)
+    subprocess.run(
+        [
+            "cargo",
+            "build",
+            "--manifest-path",
+            str(ROOT / "Cargo.toml"),
+            "-p",
+            "regie-core",
+            "--example",
+            "differential",
+        ],
+        check=True,
+        env={**dict(__import__("os").environ), "CARGO_TARGET_DIR": str(ROOT / "target-differential")},
+    )
+    binary = ROOT / "target-differential" / "debug" / "examples" / "differential.exe"
     if not binary.exists():
-        print("building the differential helper...", file=sys.stderr)
-        subprocess.run(
-            [
-                "cargo",
-                "build",
-                "--manifest-path",
-                str(ROOT / "Cargo.toml"),
-                "-p",
-                "regie-core",
-                "--example",
-                "differential",
-            ],
-            check=True,
-            env={**dict(__import__("os").environ), "CARGO_TARGET_DIR": str(ROOT / "target-differential")},
-        )
-        binary = ROOT / "target-differential" / "debug" / "examples" / "differential.exe"
-        if not binary.exists():
-            binary = ROOT / "target-differential" / "debug" / "examples" / "differential"
+        binary = ROOT / "target-differential" / "debug" / "examples" / "differential"
 
     result = subprocess.run(
         [str(binary)],
