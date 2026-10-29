@@ -50,6 +50,51 @@ let re = Regex::from_spec(&spec).expect("the specification compiles");
 assert!(re.is_match(b"123.456.789-09"));
 ```
 
+## More examples
+
+The gallery of [`EXAMPLES.md`](EXAMPLES.md) has one runnable program per
+subject: the dialect, the capture groups, the structured specifications, the
+refusals, the budgets, the deterministic automaton and the error type.
+
+Matching a pattern:
+
+```rust
+use regie_core::Regex;
+
+let re = Regex::new(r"^\d{3}-\d{4}$").expect("the pattern compiles");
+for input in ["555-1234", "5551234"] {
+    println!("{input}: {}", re.is_match(input.as_bytes()));
+}
+```
+
+```console
+555-1234: true
+5551234: false
+```
+
+Compiling a specification:
+
+```rust
+use regie_core::spec::{CandidateSpec, CharsetPolicy, Strictness, ValidationKind};
+use regie_core::Regex;
+
+let spec = CandidateSpec::Validate {
+    kind: ValidationKind::Email,
+    strictness: Strictness::Standard,
+    charset: CharsetPolicy::Any,
+    max_len: None,
+};
+
+let re = Regex::from_spec(&spec).expect("the specification compiles");
+println!("ana@corp.com: {}", re.is_match(b"ana@corp.com"));
+println!("not-an-email:  {}", re.is_match(b"not-an-email"));
+```
+
+```console
+ana@corp.com: true
+not-an-email:  false
+```
+
 ## The features
 
 | feature | effect |
