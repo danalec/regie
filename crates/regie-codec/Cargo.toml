@@ -16,6 +16,8 @@ regie-core = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+# The examples build an automaton, which needs the allocator of `regie-core`.
+regie-core = { workspace = true, features = ["alloc"] }
 
 [lints]
 workspace = true

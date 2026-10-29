@@ -66,6 +66,26 @@ value `0xFFFFFFFF`, final XOR `0xFFFFFFFF` — the function `zlib` calls
   accept bitmap, transitions and end anchor as the original, and matches
   identically.
 
+## More examples
+
+The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every example of the
+crate with the output it prints: the byte layout of the artifact, the round
+trip through the decoder, the firmware path and the way a corrupt artifact is
+rejected.
+
+Matching an automaton that was compiled ahead of time:
+
+```console
+$ cargo run -p regie-codec --example precompiled_dfa
+artifact: 558 bytes, 14 states, 10 byte classes
+accepts at the end only: true
+  ana@corp.com             -> true
+  mail ana@corp.com here   -> false
+  ana@other.com            -> false
+  ana@corp.com.br          -> false
+  nobody here              -> false
+```
+
 ## Features
 
 * `alloc` — adds `encode_to_vec`, which returns an owned buffer.

@@ -11,7 +11,7 @@
 //! automaton with `include_bytes!` and never compile anything at boot.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use regie_codec::encode;
 use regie_core::Regex;
@@ -57,7 +57,7 @@ fn main() {
     println!(
         "wrote {} bytes to {} ({} states, {} byte classes)",
         artifact.len(),
-        path.display(),
+        display_path(&path),
         dfa.state_count(),
         dfa.class_count()
     );
@@ -69,4 +69,18 @@ fn artifact_path() -> PathBuf {
         .join("examples")
         .join("assets")
         .join("ana_at_corp.rdf")
+}
+
+/// How the path is shown.
+///
+/// The path is printed relative to the working directory when it can be, so
+/// that the output of the example is the same on every machine.
+fn display_path(path: &Path) -> String {
+    match std::env::current_dir() {
+        Ok(current) => match path.strip_prefix(&current) {
+            Ok(relative) => relative.display().to_string(),
+            Err(_) => path.display().to_string(),
+        },
+        Err(_) => path.display().to_string(),
+    }
 }
