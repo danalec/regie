@@ -18,6 +18,8 @@ reads the artifact format of [`regie-codec`](../regie-codec).
 | `test` | compiles a pattern and reports whether it matches |
 | `intent` | turns a request into a specification |
 | `search` | narrows a request down with examples |
+| `show` | interprets a request and shows what it matches |
+| `serve` | serves the live view on the loopback interface |
 | `dfa` | compiles a pattern into an artifact |
 | `decode` | matches against an artifact |
 
@@ -53,6 +55,45 @@ match
 
 Every command that prints a specification prints it twice: once in a human
 form and once as JSON. The JSON is a single line, and its shape is stable.
+
+## The live view
+
+`show` is the subcommand that answers the question the other ones leave open:
+what does this request actually catch? It interprets the request, compiles the
+specification and prints the haystack with the part that matched underlined:
+
+```console
+$ regie show 'extrair o email' --input 'mail ana@corp.com now'
+request: extrair o email
+intent: confident extract emails boundary=greedy capture=whole
+haystack: mail ana@corp.com now
+     ^^^^^^^^^^^^ matched 5..17
+groups:
+  0: 5..17 "ana@corp.com"
+  1: 5..17 "ana@corp.com"
+```
+
+A validation is anchored, so a value inside a sentence is not a match. The
+subcommand says so, instead of leaving a bare "no match" behind:
+
+```console
+$ regie show 'validar CPF' --input 'the cpf of ana is 123.456.789-09'
+request: validar CPF
+intent: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
+haystack: the cpf of ana is 123.456.789-09
+no match
+note: a validation is anchored - the whole haystack has to be the value
+```
+
+`--watch <file>` prints the view again every time the file changes, which is
+what a log file or a template needs. `serve` serves the same view as a page
+that follows the typing:
+
+```text
+$ regie serve --port 8080
+regie is serving the live view on http://127.0.0.1:8080
+press ctrl-c to stop it
+```
 
 ## The exit codes
 

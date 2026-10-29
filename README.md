@@ -227,6 +227,33 @@ $ regie dfa '^ana@corp\.com$' ana.rdf
 wrote 558 bytes to ana.rdf (14 states, 10 byte classes)
 ```
 
+## The live view
+
+`regie show` builds the needle for you and shows what it caught. The request
+goes through the intent layer, the specification goes through the compiler, and
+the engine runs the automaton over the haystack:
+
+```console
+$ cargo run -p regie-cli --bin regie -- show 'extrair o email' --input 'mail ana@corp.com now'
+request: extrair o email
+intent: confident extract emails boundary=greedy capture=whole
+haystack: mail ana@corp.com now
+     ^^^^^^^^^^^^ matched 5..17
+groups:
+  0: 5..17 "ana@corp.com"
+  1: 5..17 "ana@corp.com"
+```
+
+`regie serve` puts the same view in a browser and follows the typing. The page
+is embedded in the binary, the server listens on the loopback interface only,
+and nothing leaves the machine:
+
+```text
+$ cargo run -p regie-cli --bin regie -- serve --port 8080
+regie is serving the live view on http://127.0.0.1:8080
+press ctrl-c to stop it
+```
+
 ## Building
 
 ```console

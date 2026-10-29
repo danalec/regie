@@ -3,9 +3,10 @@
 `regie` is the command line front-end of the workspace. It exposes the four
 layers of the project behind one binary: `match` and `test` run a pattern
 against an input, `intent` turns a natural-language request into a
-structured specification, `search` verifies a request against examples, and
-`dfa` and `decode` compile a pattern into a `regie-codec` artifact and match
-an input against it.
+structured specification, `search` verifies a request against examples, `show`
+interprets a request and shows what it matches, `serve` puts that view in a
+browser, and `dfa` and `decode` compile a pattern into a `regie-codec`
+artifact and match an input against it.
 
 Run the tool from the workspace with
 `cargo run -p regie-cli --bin regie -- <subcommand> <args>`.
@@ -106,6 +107,88 @@ explored: 64 candidates, 52 rejected
 The last line counts the candidates the search looked at and the ones it
 rejected; the counters on each rank line say how many positive examples the
 candidate accepted and how many negative examples it rejected.
+
+## `show`
+
+What it does: interprets a request, compiles the specification and prints the
+haystack with the part that matched underlined. The needle is built for you:
+the model picks a specification out of a closed enumeration, the compiler turns
+it into an automaton, and the engine runs it.
+
+```console
+$ cargo run -p regie-cli --bin regie -- show 'extrair o email' --input 'mail ana@corp.com now'
+request: extrair o email
+intent: confident extract emails boundary=greedy capture=whole
+haystack: mail ana@corp.com now
+     ^^^^^^^^^^^^ matched 5..17
+groups:
+  0: 5..17 "ana@corp.com"
+  1: 5..17 "ana@corp.com"
+```
+
+The span of the match and the span of every capture group are byte offsets,
+the same offsets the engine reports.
+
+A validation is anchored: the whole haystack has to be the value. A value
+inside a sentence is not a match, and the subcommand says why:
+
+```console
+$ cargo run -p regie-cli --bin regie -- show 'validar CPF' --input 'the cpf of ana is 123.456.789-09'
+request: validar CPF
+intent: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
+haystack: the cpf of ana is 123.456.789-09
+no match
+note: a validation is anchored - the whole haystack has to be the value
+```
+
+A request the model does not settle on is a normal outcome, not a failure:
+
+```console
+$ cargo run -p regie-cli --bin regie -- show 'validar numero' --input '123'
+request: validar numero
+intent: ambiguous conflicting_kinds (3 suggestion(s))
+note: the model did not settle on one specification (ConflictingKinds)
+  1. integer
+  2. portuguese_nif
+  3. brazilian_phone
+```
+
+`--positive` and `--negative` narrow the request down the same way `search`
+does. `--watch <file>` prints the view again every time the file changes:
+
+```text
+$ regie show 'extrair o email' --watch access.log
+request: extrair o email
+intent: confident extract emails boundary=greedy capture=whole
+haystack: mail ana@corp.com now
+     ^^^^^^^^^^^^ matched 5..17
+groups:
+  0: 5..17 "ana@corp.com"
+  1: 5..17 "ana@corp.com"
+--- access.log ---
+```
+
+The separator is printed before the view of the new content.
+
+The output carries colour when it goes to a terminal, and plain text when it
+goes to a pipe or a file. `NO_COLOR` turns the colour off, and `--no-color`
+does the same for one run.
+
+## `serve`
+
+What it does: serves the live view on the loopback interface. The page asks
+the server for an analysis every time the request or the haystack changes, so
+the view follows the typing.
+
+```text
+$ cargo run -p regie-cli --bin regie -- serve --port 8080
+regie is serving the live view on http://127.0.0.1:8080
+press ctrl-c to stop it
+```
+
+The page is embedded in the binary, so there is nothing to install and nothing
+to serve from a directory. The server never listens on anything but
+`127.0.0.1`: it is a view of the engine, not a service.
 
 ## `dfa`
 

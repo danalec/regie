@@ -75,7 +75,7 @@ specification, never a broken or dangerous pattern.
 
 ## From the shell
 
-The `regie` binary has six subcommands. The exit code carries the verdict:
+The `regie` binary has eight subcommands. The exit code carries the verdict:
 `0` for success, `1` for "no match" or "could not settle", `2` for an error.
 
 ### `match` — find a pattern in a text
@@ -132,6 +132,49 @@ rank 3: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
 rank 4: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
 explored: 64 candidates, 52 rejected
 ```
+
+### `show` — see what the request catches
+
+`show` builds the needle for you and shows it working. The model picks a
+specification, the compiler turns it into an automaton, and the engine runs it
+over the haystack:
+
+```console
+$ cargo run -p regie-cli --bin regie -- show 'extrair o email' --input 'mail ana@corp.com now'
+request: extrair o email
+intent: confident extract emails boundary=greedy capture=whole
+haystack: mail ana@corp.com now
+     ^^^^^^^^^^^^ matched 5..17
+groups:
+  0: 5..17 "ana@corp.com"
+  1: 5..17 "ana@corp.com"
+```
+
+A validation is anchored, so the whole haystack has to be the value. The
+subcommand says so when the value is only part of a sentence:
+
+```console
+$ cargo run -p regie-cli --bin regie -- show 'validar CPF' --input 'the cpf of ana is 123.456.789-09'
+request: validar CPF
+intent: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
+haystack: the cpf of ana is 123.456.789-09
+no match
+note: a validation is anchored - the whole haystack has to be the value
+```
+
+### `serve` — the live view in a browser
+
+`serve` serves the same view as a page that follows the typing. The page is
+embedded in the binary and the server listens on the loopback interface only:
+
+```text
+$ cargo run -p regie-cli --bin regie -- serve --port 8080
+regie is serving the live view on http://127.0.0.1:8080
+press ctrl-c to stop it
+```
+
+Open the address it prints and the page interprets the request as you type,
+highlights the part that matched and lists the capture groups.
 
 ### `dfa` and `decode` — the firmware path
 
