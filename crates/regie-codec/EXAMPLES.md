@@ -154,3 +154,56 @@ corrupting the artifact
 ```
 
 Source: [`crates/regie-codec/examples/round_trip.rs`](examples/round_trip.rs)
+
+## `hard_artifacts`
+
+What it shows: a hard pattern compiled into an automaton, encoded into an artifact, decoded back, and the four ways a corrupted artifact is refused.
+
+Run it:
+
+```console
+$ cargo run -p regie-codec --example hard_artifacts --features alloc
+pattern: (?:[a-z]+@[a-z]+\.[a-z]{2,3}|[0-9]{3}-[0-9]{4})
+automaton: 17 states, 6 byte classes
+artifact: 483 bytes
+
+the decoded automaton has the same parts as the original
+  states 17 == 17
+  classes 6 == 6
+  byte table    true
+  accept bitmap true
+  transitions   true
+  end anchor    true
+
+both automata answer the same way
+  subject             original  decoded   verdict
+  "ana@corp.com"      true      true      agree
+  "ana@corp.io"       true      true      agree
+  "ana@corp"          false     false     agree
+  "ana@corp.comm"     true      true      agree
+  "ANA@CORP.COM"      false     false     agree
+  "555-1234"          true      true      agree
+  "5551234"           false     false     agree
+  "555-12345"         true      true      agree
+  "555-123"           false     false     agree
+  "nobody here"       false     false     agree
+
+the artifact is the same automaton, byte for byte
+  the CRC-32 catches a corrupted image before it is linked into firmware
+
+corrupting the artifact
+  a flipped magic byte (483 bytes)
+    BadMagic { found: [83, 71, 68, 70] }
+    bad magic: expected `RGDF`, found 53474446
+  a truncated blob (482 bytes)
+    Truncated { needed: 483, actual: 482 }
+    artifact is truncated: 482 bytes available, 483 needed
+  a flipped payload byte (483 bytes)
+    BadChecksum { expected: 671273265, found: 3552925297 }
+    bad checksum: computed 0x2802d131, artifact says 0xd3c55671
+  a corrupted checksum byte (483 bytes)
+    BadChecksum { expected: 3552925297, found: 3536148081 }
+    bad checksum: computed 0xd3c55671, artifact says 0xd2c55671
+```
+
+Source: [`crates/regie-codec/examples/hard_artifacts.rs`](examples/hard_artifacts.rs)

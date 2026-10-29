@@ -340,3 +340,167 @@ no memory to spend on a determinization.
 
 In short: build the automaton when the pattern is fixed and the dialect allows
 it, keep the Pike VM for everything else.
+
+## `linear_time`
+
+What it shows: that the worst case of the engine is linear. The five patterns
+below are the ones that make a backtracking engine take exponential time on a
+subject of a few hundred bytes. This engine simulates a Thompson NFA with a
+Pike VM instead of backtracking, so the work is `O(m * n)` for a program of `m`
+instructions over a subject of `n` bytes, and every case ends. The last two
+cases end on a subject of one mebibyte.
+
+The program prints no timings on purpose: the point is not that the run is
+fast, but that it finishes at all.
+
+A match of zero bytes is still a match: `(a|a)*$` finds the empty string at
+the end of a subject that ends with a `b`, because `*` allows zero
+repetitions. A backtracking engine answers the same.
+
+Run it:
+
+```console
+$ cargo run -p regie-core --example linear_time
+the patterns that break a backtracking engine:
+PATTERN         LENGTH SUBJECT      VERDICT    SPAN
+(a+)+$              64 all a        match      0..64
+(a+)+$              65 all a + b    no match   -
+(a+)+$             256 all a        match      0..256
+(a+)+$             257 all a + b    no match   -
+(a+)+$            1024 all a        match      0..1024
+(a+)+$            1025 all a + b    no match   -
+(a+)+$            4096 all a        match      0..4096
+(a+)+$            4097 all a + b    no match   -
+(a|aa)+$            64 all a        match      0..64
+(a|aa)+$            65 all a + b    no match   -
+(a|aa)+$           256 all a        match      0..256
+(a|aa)+$           257 all a + b    no match   -
+(a|aa)+$          1024 all a        match      0..1024
+(a|aa)+$          1025 all a + b    no match   -
+(a|aa)+$          4096 all a        match      0..4096
+(a|aa)+$          4097 all a + b    no match   -
+(a|a)*$             64 all a        match      0..64
+(a|a)*$             65 all a + b    match      65..65
+(a|a)*$            256 all a        match      0..256
+(a|a)*$            257 all a + b    match      257..257
+(a|a)*$           1024 all a        match      0..1024
+(a|a)*$           1025 all a + b    match      1025..1025
+(a|a)*$           4096 all a        match      0..4096
+(a|a)*$           4097 all a + b    match      4097..4097
+(a*)*b              64 all a        no match   -
+(a*)*b              65 all a + b    match      0..65
+(a*)*b             256 all a        no match   -
+(a*)*b             257 all a + b    match      0..257
+(a*)*b            1024 all a        no match   -
+(a*)*b            1025 all a + b    match      0..1025
+(a*)*b            4096 all a        no match   -
+(a*)*b            4097 all a + b    match      0..4097
+((a)|(a))*b         64 all a        no match   -
+((a)|(a))*b         65 all a + b    match      0..65
+((a)|(a))*b        256 all a        no match   -
+((a)|(a))*b        257 all a + b    match      0..257
+((a)|(a))*b       1024 all a        no match   -
+((a)|(a))*b       1025 all a + b    match      0..1025
+((a)|(a))*b       4096 all a        no match   -
+((a)|(a))*b       4097 all a + b    match      0..4097
+
+the same engine on a subject of one mebibyte:
+PATTERN         LENGTH SUBJECT      VERDICT    SPAN
+a+$            1048576 all a        match      0..1048576
+a+$            1048577 all a + b    no match   -
+```
+
+Source: [`crates/regie-core/examples/linear_time.rs`](examples/linear_time.rs)
+
+## `hard_patterns`
+
+What it shows: the hard parts of the dialect. Nested groups and the way they
+are numbered, the limit on the number of groups, greedy against lazy, the
+precedence of the alternation, the anchors with and without the multi-line
+flag, the scoped flag against the global one, the empty match, the word
+boundary at the edges of the subject, the bounds of a repetition, and the
+class the engine refuses.
+
+Every case is one row: the verdict, the span of the match, or the exact error
+the engine returns for a pattern it refuses.
+
+Run it:
+
+```console
+$ cargo run -p regie-core --example hard_patterns
+CONSTRUCT                    PATTERN                      SUBJECT      VERDICT   SPAN OR ERROR
+nested groups                ((a)(b(c)))                  "abc"        match     0..3
+group limit, eight           (a)(b)(c)(d)(e)(f)(g)(h)     "abcdefgh"   match     0..8
+group limit, nine            (a)(b)(c)(d)(e)(f)(g)(h)(i)  "abcdefghi"  refused   pattern uses more than 8 capture groups
+greedy                       <(.+)>                       "<a><b>"     match     0..6
+lazy                         <(.+?)>                      "<a><b>"     match     0..3
+alternation                  cat|dog                      "cats"       match     0..3
+grouped alternation          (cat|dog)s?                  "cats"       match     0..4
+text anchor                  ^b$                          "a\nb"       no match  -
+line anchor                  (?m)^b$                      "a\nb"       match     2..3
+scoped flag                  (?i:abc)d                    "ABCd"       match     0..4
+scoped flag, other case      (?i:abc)d                    "ABCD"       no match  -
+global flag                  (?i)abc                      "ABC"        match     0..3
+empty match                  a*                           "bbb"        match     0..0
+word boundary                \bcat\b                      "cat"        match     0..3
+word boundary, in a word     \bcat\b                      "concat"     no match  -
+zero repetitions             a{0}                         "aa"         match     0..0
+bounded repetitions          a{2,3}                       "aa"         match     0..2
+bounded repetitions, greedy  a{2,3}                       "aaaa"       match     0..3
+reversed range               [z-a]                        "abc"        refused   invalid character class at byte 0: character range is reversed
+
+the groups of ((a)(b(c))) on "abc":
+  group 0: 0..3 "abc"
+  group 1: 0..3 "abc"
+  group 2: 0..1 "a"
+  group 3: 1..3 "bc"
+  group 4: 2..3 "c"
+```
+
+Source: [`crates/regie-core/examples/hard_patterns.rs`](examples/hard_patterns.rs)
+
+## `dfa_vs_nfa`
+
+What it shows: that the two engines answer the same question. For four hard
+patterns it builds the deterministic automaton, prints its size, and compares
+the Pike VM with the automaton on every subject: the verdict of one against
+the verdict of the other, and the end of the match of one against the end of
+the match of the other.
+
+Thirty-two comparisons, thirty-two agreements.
+
+Run it:
+
+```console
+$ cargo run -p regie-core --example dfa_vs_nfa --features alloc
+pattern (a|aa)+$:
+  automaton: 4 states, 2 byte classes
+  SUBJECT                        PIKE VM        AUTOMATON        VERDICT  END
+  "aaaa"                         match 0..4     match end 4      agree    agree
+  "aaab"                         no match       no match         agree    agree
+  "aa"                           match 0..2     match end 2      agree    agree
+  "xx aaaa"                      match 3..7     match end 7      agree    agree
+pattern [a-z]+@[a-z]+\.[a-z]{2,}:
+  automaton: 8 states, 4 byte classes
+  SUBJECT                        PIKE VM        AUTOMATON        VERDICT  END
+  "ana@corp.io"                  match 0..11    match end 11     agree    agree
+  "ana@corp"                     no match       no match         agree    agree
+  "ana@corp.i"                   no match       no match         agree    agree
+  "write to ana@corp.io today"   match 9..20    match end 20     agree    agree
+pattern (\d{4})-(\d{2})-(\d{2}):
+  automaton: 12 states, 3 byte classes
+  SUBJECT                        PIKE VM        AUTOMATON        VERDICT  END
+  "2026-10-29"                   match 0..10    match end 10     agree    agree
+  "2026-10"                      no match       no match         agree    agree
+  "2026-10-2"                    no match       no match         agree    agree
+  "on 2026-10-29 ok"             match 3..13    match end 13     agree    agree
+pattern ^(?:[a-z]+ ){2,4}[a-z]+$:
+  automaton: 11 states, 3 byte classes
+  SUBJECT                        PIKE VM        AUTOMATON        VERDICT  END
+  "one two three"                match 0..13    match end 13     agree    agree
+  "one two"                      no match       no match         agree    agree
+  "one two thr"                  match 0..11    match end 11     agree    agree
+  "one two three four five"      match 0..23    match end 23     agree    agree
+```
+
+Source: [`crates/regie-core/examples/dfa_vs_nfa.rs`](examples/dfa_vs_nfa.rs)

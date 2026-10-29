@@ -216,3 +216,94 @@ model: regie-intent, embedded and quantized
 ```
 
 Source: [`crates/regie-intent/examples/model_profile.rs`](examples/model_profile.rs)
+
+## `hard_requests`
+
+What it shows: the requests that sit on the edge of a family boundary, and
+what the model does with them.  The model chooses one value out of a closed
+enumeration, so a wrong guess yields a specification that is *valid* but
+answers a different question than the request asked - "extrair a data no
+formato ISO" is answered with a validation of an ISO date and not with an
+extraction, so the date inside a sentence is refused.  A request the model
+cannot settle on is not answered at all: it comes back as an ambiguity that
+carries the candidates it could not choose between, and a request that is not
+a request at all comes back with no candidate whatsoever.
+
+Run it:
+
+```console
+$ cargo run -p regie-intent --example hard_requests
+request: "validar CNPJ"
+  outcome:   confident
+  spec:      validation brazilian_cnpj (strictness=Standard, charset=Digits, max_len=Some(18))
+  value:          "12.345.678/0001-95" -> match
+  one digit short:"12.345.678/0001-9" -> no match
+
+request: "validar CPF"
+  outcome:   confident
+  spec:      validation brazilian_cpf (strictness=Standard, charset=Digits, max_len=Some(14))
+  value:          "123.456.789-09" -> match
+  no check digits:"123.456.789" -> no match
+
+request: "validar NIF"
+  outcome:   confident
+  spec:      validation portuguese_nif (strictness=Standard, charset=Digits, max_len=Some(9))
+  value:          "123456789" -> match
+  punctuated:     "123.456.789" -> no match
+
+request: "validar telefone brasileiro"
+  outcome:   confident
+  spec:      validation brazilian_phone (strictness=Standard, charset=Digits, max_len=Some(17))
+  value:          "+55 11 91234-5678" -> match
+  free text:      "not a phone" -> no match
+
+request: "validar CEP"
+  outcome:   confident
+  spec:      validation brazilian_postal_code (strictness=Standard, charset=Digits, max_len=Some(9))
+  value:          "01310-100" -> match
+  truncated:      "01310" -> no match
+
+request: "extrair a data no formato ISO"
+  outcome:   confident
+  spec:      validation iso_date (strictness=Standard, charset=Digits, max_len=Some(10))
+  value:          "2026-10-29" -> match
+  in a sentence:  "the date is 2026-10-29" -> no match
+
+request: "extrair as palavras entre aspas"
+  outcome:   confident
+  spec:      extraction quoted (boundary=Greedy, capture=Group)
+  value:          "say \"hi\"" -> match
+  no quotes:      "no quotes here" -> no match
+
+request: "extrair o numero do processo"
+  outcome:   confident
+  spec:      extraction numbers (boundary=Greedy, capture=Whole)
+  value:          "process 12345" -> match
+  no digits:      "no digits here" -> no match
+
+request: "bloquear a palavra urgente"
+  outcome:   confident
+  spec:      filter (action=Block, terms=["urgente"])
+  value:          "a urgente message" -> match
+  no term:        "a quiet message" -> no match
+
+request: "check if this is a valid email address"
+  outcome:   confident
+  spec:      validation email (strictness=Standard, charset=PrintableAscii, max_len=Some(254))
+  value:          "ana@corp.com" -> match
+  not an address: "not an email" -> no match
+
+request: "validar numero"
+  outcome:   ambiguous (ConflictingKinds)
+  candidates:
+    validation integer (strictness=Standard, charset=Digits, max_len=Some(20))
+    validation portuguese_nif (strictness=Standard, charset=Digits, max_len=Some(9))
+    validation brazilian_phone (strictness=Standard, charset=Digits, max_len=Some(17))
+
+request: "asdkjhaskjdhaskjdh"
+  outcome:   ambiguous (LowConfidence)
+  candidates: (none)
+
+```
+
+Source: [`crates/regie-intent/examples/hard_requests.rs`](examples/hard_requests.rs)
