@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parent.parent
 GALLERIES = (
     [ROOT / "README.md"]
     + sorted(ROOT.glob("docs/*.md"))
+    + sorted(ROOT.glob("crates/*/README.md"))
     + sorted(ROOT.glob("crates/*/EXAMPLES.md"))
 )
 
@@ -101,6 +102,22 @@ def normalize(text: str) -> list[str]:
     return lines
 
 
+def example_owners() -> dict[str, list[str]]:
+    """Maps the name of every example to the crates that declare it.
+
+    Cargo writes the examples of every crate of a workspace into one
+    directory, so two crates that declare an example with the same name
+    silently overwrite each other.  The checker has to know about that
+    before it compares a documented output with the wrong program.
+    """
+    owners: dict[str, list[str]] = {}
+    for directory in sorted(ROOT.glob("crates/*/examples")):
+        crate = directory.parent.name
+        for source in sorted(directory.glob("*.rs")):
+            owners.setdefault(source.stem, []).append(crate)
+    return owners
+
+
 def build(target: Path) -> tuple[Path, str]:
     """Builds the examples and the binaries, and returns the target directory."""
     target.mkdir(parents=True, exist_ok=True)
@@ -124,6 +141,9 @@ def build(target: Path) -> tuple[Path, str]:
     return target, ""
 
 
+PLACEHOLDER = re.compile(r"^<[^>]*>$")
+
+
 def resolve(command: str, target: Path) -> tuple[list[str], str] | None:
     """Turns a documented command into the program to run.
 
@@ -132,6 +152,10 @@ def resolve(command: str, target: Path) -> tuple[list[str], str] | None:
     """
     parts = shlex.split(command)
     if not parts:
+        return None
+
+    # A token that is a placeholder marks a template, not a command.
+    if any(PLACEHOLDER.match(part) for part in parts):
         return None
 
     if parts[0] == "cargo" and parts[1] == "run":
@@ -194,9 +218,39 @@ def resolve(command: str, target: Path) -> tuple[list[str], str] | None:
     return None
 
 
+def run_producer(command: str) -> str:
+    """Runs the left side of a pipeline and returns what it wrote.
+
+    The documentation is written for a POSIX shell, where `echo "text"`
+    writes `text`.  The Windows shell keeps the quotes, so the two would
+    disagree; the difference is handled here.
+    """
+    parts = shlex.split(command)
+    if parts and parts[0] == "echo":
+        return " ".join(parts[1:]) + "\n"
+    result = subprocess.run(
+        command,
+        shell=True,
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
 def observe(case: Case, target: Path, workspace: Path) -> tuple[list[str], int, str]:
     """Runs one case and returns what it printed."""
-    resolved = resolve(case.command, target)
+    command = case.command
+
+    # A pipeline is split in two: the left side produces the input and the
+    # right side is the program that is checked.
+    producer = None
+    if "|" in command:
+        left, right = command.split("|", 1)
+        producer = run_producer(left.strip())
+        command = right.strip()
+
+    resolved = resolve(command, target)
     if resolved is None:
         return [], 0, "not checked"
 
@@ -209,6 +263,10 @@ def observe(case: Case, target: Path, workspace: Path) -> tuple[list[str], int, 
         cwd=directory,
         capture_output=True,
         text=True,
+        # An example that reads the standard input has to see the end of it
+        # at once, or the check waits for a key press that never comes.
+        stdin=subprocess.DEVNULL if producer is None else None,
+        input=producer,
     )
     combined = result.stdout + result.stderr
     return normalize(combined), result.returncode, ""
@@ -243,6 +301,21 @@ def main(argv: list[str]) -> int:
         return 0
 
     target = Path(args.target) if args.target else ROOT / "target-examples"
+
+    collisions = {
+        name: crates for name, crates in example_owners().items() if len(crates) > 1
+    }
+    if collisions:
+        print("two crates declare an example with the same name:", file=sys.stderr)
+        for name, crates in sorted(collisions.items()):
+            print("  %s: %s" % (name, ", ".join(crates)), file=sys.stderr)
+        print(
+            "cargo writes every example of a workspace into one directory, so "
+            "one of the two silently replaces the other.",
+            file=sys.stderr,
+        )
+        return 1
+
     target, failure = build(target)
     if failure:
         print("the build failed:", file=sys.stderr)
@@ -259,13 +332,22 @@ def main(argv: list[str]) -> int:
                 unchecked += 1
                 print("skip  %s (%s)" % (case, note))
                 continue
-            if observed == normalize("\n".join(case.expected)):
+            expected = normalize("\n".join(case.expected))
+            # A gallery may shorten a long output with a trailing ellipsis.
+            # The part that is shown still has to be exactly right.
+            elided = bool(expected) and expected[-1].strip() == "..."
+            if elided:
+                expected = expected[:-1]
+                matched = observed[: len(expected)] == expected
+            else:
+                matched = observed == expected
+            if matched:
                 print("ok    %s" % case)
             else:
                 failures += 1
                 print("FAIL  %s" % case)
                 print("  expected:")
-                for line in normalize("\n".join(case.expected)):
+                for line in expected:
                     print("    | %s" % line)
                 print("  observed:")
                 for line in observed:
