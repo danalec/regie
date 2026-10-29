@@ -40,6 +40,30 @@ fn anchors() {
 }
 
 #[test]
+fn word_boundaries_on_an_empty_subject_follow_the_newer_python() {
+    // Python 3.14 changed `\B`: it matches an empty subject now.  The engine
+    // follows the newer behaviour, which is also the one of the other
+    // engines.  The older Python releases refuse to match, which is the
+    // difference the differential harness knows about.
+    assert!(!matched(r"\b", b""));
+    let hit = m(r"\B", b"").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+    let hit = m(r"^\B((?:x|a))*", b"").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+
+    // The boundary is between the space and the letter, so `\b` is there and
+    // `\B` is at the start of the subject.
+    let hit = m(r"\b", b" a").expect("should match");
+    assert_eq!((hit.start, hit.end), (1, 1));
+    let hit = m(r"\B", b" a").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+    let hit = m(r"\b", b"ab").expect("should match");
+    assert_eq!((hit.start, hit.end), (0, 0));
+    let hit = m(r"\B", b"ab").expect("should match");
+    assert_eq!((hit.start, hit.end), (1, 1));
+}
+
+#[test]
 fn character_classes() {
     assert!(matched("[a-z]+", b"abc"));
     // The class stops at the uppercase letter, but the match still exists.

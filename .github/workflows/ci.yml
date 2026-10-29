@@ -55,7 +55,9 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Build without default features (the no_std path)
-        run: cargo build --workspace --no-default-features
+        # The command line tool is a program of the host: it needs the
+        # allocator of the engine, so it is not part of the `no_std` build.
+        run: cargo build --workspace --exclude regie-cli --no-default-features
 
       - name: Build with every feature
         run: cargo build --workspace --all-features
@@ -110,9 +112,18 @@ jobs:
 
       - name: Check the size of the core
         run: |
+          set -euo pipefail
           # The `no_std` core must stay small enough to link into firmware.
-          cargo install cargo-size --locked
-          cargo size --release -p regie-core --no-default-features --target ${{ matrix.target }}
+          # The archive of the library is the part that goes into the
+          # firmware, so its size is the number that has to stay small.
+          cargo build --release -p regie-core --no-default-features --target ${{ matrix.target }}
+          bytes=$(wc -c < "target/${{ matrix.target }}/release/libregie_core.rlib")
+          echo "libregie_core.rlib: $bytes bytes"
+          limit=1048576
+          if [ "$bytes" -gt "$limit" ]; then
+            echo "::error::the core grew past the limit of $limit bytes"
+            exit 1
+          fi
 
   # ---------------------------------------------------------------------------
   # The allocator-free guarantee is checked with a custom target that has no
@@ -151,12 +162,14 @@ jobs:
         run: cargo install cargo-fuzz --locked
 
       - name: Build the fuzz targets
-        run: cargo fuzz build --manifest-path fuzz/Cargo.toml
+        # The fuzz directory holds a workspace of its own, and `cargo fuzz`
+        # finds it by the name.  It takes no manifest of its own.
+        run: cargo fuzz build
 
       - name: Run the fuzzer briefly
         run: |
-          cargo fuzz run parser --manifest-path fuzz/Cargo.toml -- -max_total_time=60
-          cargo fuzz run compiler --manifest-path fuzz/Cargo.toml -- -max_total_time=60
+          cargo fuzz run parser -- -max_total_time=60
+          cargo fuzz run compiler -- -max_total_time=60
 
   # ---------------------------------------------------------------------------
   # The differential test against Python's `re` proves that the dialect is
@@ -174,7 +187,9 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          # The engine follows the behaviour of Python 3.14, where `\B` matches
+          # an empty subject.  The comparison needs that release.
+          python-version: "3.14"
 
       - name: Build the differential example
         run: cargo build -p regie-core --example differential
@@ -198,7 +213,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Check the documented outputs
         run: python tools/check_examples.py

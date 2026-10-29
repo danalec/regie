@@ -67,8 +67,8 @@ impl ClassTable {
 
     /// Registers a byte set, reusing an identical one when possible.
     pub fn add(&mut self, set: &ByteSet) -> Result<u16> {
-        for index in 0..self.count as usize {
-            if self.sets[index] == *set {
+        for (index, existing) in self.sets.iter().take(self.count as usize).enumerate() {
+            if *existing == *set {
                 return Ok(index as u16);
             }
         }
@@ -81,9 +81,9 @@ impl ClassTable {
         self.sets[id as usize] = *set;
         self.count += 1;
         let mask = 1u32 << id;
-        for byte in 0..256usize {
+        for (byte, slot) in self.membership.iter_mut().enumerate() {
             if set_contains(set, byte as u8) {
-                self.membership[byte] |= mask;
+                *slot |= mask;
             }
         }
         Ok(id)

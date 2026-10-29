@@ -19,7 +19,10 @@ dialects differ on purpose:
   `]` as the end of the class, so the two match different bytes;
 * Python 3.11 refuses a global flag directive that is not at the start of the
   expression, `regie` accepts one anywhere inside a group;
-* Python supports a hundred capture groups, `regie` supports eight.
+* Python supports a hundred capture groups, `regie` supports eight;
+* Python 3.14 changed `\\B`, which matches an empty subject from that release
+  on; the engine follows the newer behaviour, so the two only differ on the
+  older Python releases.
 
 Usage:
 
@@ -261,6 +264,7 @@ CAPTURE_GROUP = re.compile(r"(?<!\\)\((?!\?)")
 BACKREFERENCE = re.compile(r"\\[1-9]")
 NAMED_GROUP = re.compile(r"\(\?P?[<']")
 END_ANCHOR = re.compile(r"(?<!\\)\$")
+NON_WORD_BOUNDARY = re.compile(r"(?<!\\)\\B")
 
 
 def dialect_difference(pattern: str, text: str) -> str | None:
@@ -285,6 +289,15 @@ def dialect_difference(pattern: str, text: str) -> str | None:
     # not.  The two are only comparable when the subject does not end with one.
     if END_ANCHOR.search(pattern) and text.endswith("\n"):
         return "trailing newline"
+    # Python 3.14 changed `\B`: it matches an empty subject now.  The engine
+    # follows the newer behaviour, so the two only differ on the older
+    # releases, which still refuse to match.
+    if (
+        text == ""
+        and NON_WORD_BOUNDARY.search(pattern)
+        and sys.version_info < (3, 14)
+    ):
+        return "empty subject with \\B"
     return None
 
 
