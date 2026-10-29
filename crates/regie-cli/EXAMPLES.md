@@ -70,7 +70,7 @@ A request the model understands exits with code `0` and prints one line of
 prose followed by the specification as JSON:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- intent 'validar CPF'
+$ cargo run -p regie-cli --bin regie -- intent 'validate a CPF'
 summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 {"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
 ```
@@ -79,9 +79,9 @@ A request that stays ambiguous exits with code `1` and prints the reason and
 the suggestions it could not choose between:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- intent 'validar numero'
-summary: ambiguous conflicting_kinds (3 suggestion(s))
-{"reason":"conflicting_kinds","status":"ambiguous","suggestions":[{"charset":"digits","kind":"integer","max_len":20,"strictness":"standard","type":"validate"},{"charset":"digits","kind":"portuguese_nif","max_len":9,"strictness":"standard","type":"validate"},{"charset":"digits","kind":"brazilian_phone","max_len":17,"strictness":"standard","type":"validate"}]}
+$ cargo run -p regie-cli --bin regie -- intent 'validate a number'
+summary: ambiguous low_confidence (3 suggestion(s))
+{"reason":"low_confidence","status":"ambiguous","suggestions":[{"charset":"digits","kind":"decimal","max_len":32,"strictness":"standard","type":"validate"},{"charset":"digits","kind":"brazilian_phone","max_len":17,"strictness":"standard","type":"validate"},{"charset":"digits","kind":"credit_card","max_len":19,"strictness":"standard","type":"validate"}]}
 ```
 
 ## `search`
@@ -94,7 +94,7 @@ the outcome.
 The exit code is `0` when exactly one candidate survives:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789'
+$ cargo run -p regie-cli --bin regie -- search 'validate a CPF' --positive '123.456.789-09' --negative '123.456.789'
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
@@ -116,8 +116,8 @@ the model picks a specification out of a closed enumeration, the compiler turns
 it into an automaton, and the engine runs it.
 
 ```console
-$ cargo run -p regie-cli --bin regie -- show 'extrair o email' --input 'mail ana@corp.com now'
-request: extrair o email
+$ cargo run -p regie-cli --bin regie -- show 'extract the email' --input 'mail ana@corp.com now'
+request: extract the email
 intent: confident extract emails boundary=greedy capture=whole
 haystack: mail ana@corp.com now
      ^^^^^^^^^^^^ matched 5..17
@@ -133,8 +133,8 @@ A validation is anchored: the whole haystack has to be the value. A value
 inside a sentence is not a match, and the subcommand says why:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- show 'validar CPF' --input 'the cpf of ana is 123.456.789-09'
-request: validar CPF
+$ cargo run -p regie-cli --bin regie -- show 'validate a CPF' --input 'the cpf of ana is 123.456.789-09'
+request: validate a CPF
 intent: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 haystack: the cpf of ana is 123.456.789-09
 no match
@@ -144,21 +144,21 @@ note: a validation is anchored - the whole haystack has to be the value
 A request the model does not settle on is a normal outcome, not a failure:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- show 'validar numero' --input '123'
-request: validar numero
-intent: ambiguous conflicting_kinds (3 suggestion(s))
-note: the model did not settle on one specification (ConflictingKinds)
-  1. integer
-  2. portuguese_nif
-  3. brazilian_phone
+$ cargo run -p regie-cli --bin regie -- show 'validate a number' --input '123'
+request: validate a number
+intent: ambiguous low_confidence (3 suggestion(s))
+note: the model did not settle on one specification (LowConfidence)
+  1. decimal
+  2. brazilian_phone
+  3. credit_card
 ```
 
 `--positive` and `--negative` narrow the request down the same way `search`
 does. `--watch <file>` prints the view again every time the file changes:
 
 ```text
-$ regie show 'extrair o email' --watch access.log
-request: extrair o email
+$ regie show 'extract the email' --watch access.log
+request: extract the email
 intent: confident extract emails boundary=greedy capture=whole
 haystack: mail ana@corp.com now
      ^^^^^^^^^^^^ matched 5..17

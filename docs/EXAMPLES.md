@@ -17,11 +17,11 @@ match: 6..18 "ana@corp.com"
 group 1: 6..9 "ana"
 group 2: 10..18 "corp.com"
 
-$ cargo run -p regie-cli --bin regie -- intent 'validar CPF'
+$ cargo run -p regie-cli --bin regie -- intent 'validate a CPF'
 summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 {"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
 
-$ cargo run -p regie-cli --bin regie -- search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789'
+$ cargo run -p regie-cli --bin regie -- search 'validate a CPF' --positive '123.456.789-09' --negative '123.456.789'
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
@@ -52,7 +52,7 @@ dependencies, and everything else is built on top of it.
 One request, through every layer:
 
 ```text
-"validar CPF"
+"validate a CPF"
      │
      ▼
 regie-intent  ──► Confident(Validate { kind: BrazilianCpf, strictness: Standard,
@@ -106,7 +106,7 @@ match
 ### `intent` — turn a sentence into a specification
 
 ```console
-$ cargo run -p regie-cli --bin regie -- intent 'validar CPF'
+$ cargo run -p regie-cli --bin regie -- intent 'validate a CPF'
 summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 {"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
 ```
@@ -123,7 +123,7 @@ summary: ambiguous low_confidence (0 suggestion(s))
 ### `search` — narrow a request down with examples
 
 ```console
-$ cargo run -p regie-cli --bin regie -- search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789'
+$ cargo run -p regie-cli --bin regie -- search 'validate a CPF' --positive '123.456.789-09' --negative '123.456.789'
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
@@ -140,8 +140,8 @@ specification, the compiler turns it into an automaton, and the engine runs it
 over the haystack:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- show 'extrair o email' --input 'mail ana@corp.com now'
-request: extrair o email
+$ cargo run -p regie-cli --bin regie -- show 'extract the email' --input 'mail ana@corp.com now'
+request: extract the email
 intent: confident extract emails boundary=greedy capture=whole
 haystack: mail ana@corp.com now
      ^^^^^^^^^^^^ matched 5..17
@@ -154,8 +154,8 @@ A validation is anchored, so the whole haystack has to be the value. The
 subcommand says so when the value is only part of a sentence:
 
 ```console
-$ cargo run -p regie-cli --bin regie -- show 'validar CPF' --input 'the cpf of ana is 123.456.789-09'
-request: validar CPF
+$ cargo run -p regie-cli --bin regie -- show 'validate a CPF' --input 'the cpf of ana is 123.456.789-09'
+request: validate a CPF
 intent: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 haystack: the cpf of ana is 123.456.789-09
 no match
@@ -240,7 +240,7 @@ assert!(!re.is_match(b"not-an-email"));
 use regie_core::spec::IntentSpec;
 use regie_intent::IntentModel;
 
-match IntentModel::embedded().interpret("validar um CPF") {
+match IntentModel::embedded().interpret("validate a CPF") {
     IntentSpec::Confident(spec) => {
         let re = regie_core::Regex::from_spec(&spec).expect("the specification compiles");
         assert!(re.is_match(b"123.456.789-09"));
@@ -259,7 +259,7 @@ use regie_search::{search, Examples};
 
 let positives = ["123.456.789-09"];
 let negatives = ["123.456.789"];
-let report = search("validar CPF", Examples::new(&positives, &negatives));
+let report = search("validate a CPF", Examples::new(&positives, &negatives));
 
 assert!(report.is_confident());
 ```
@@ -308,8 +308,8 @@ awkward.
 | A repetition over a body that can match nothing | `(b*?)*` on `b` is an empty match at `0..0`, the same answer a backtracking engine gives | [core gallery](crates/regie-core/EXAMPLES.md) |
 | A pattern that would explode a backtracking engine | `(a+)+$` over a megabyte of `a` stays linear | [core gallery](crates/regie-core/EXAMPLES.md) |
 | The DFA against the Pike VM | the two paths agree on every hard pattern and every subject | [core gallery](crates/regie-core/EXAMPLES.md) |
-| A request on the edge of a family boundary | "extrair a data no formato ISO" is answered with a *validation*, so the date inside a sentence is refused | [intent gallery](crates/regie-intent/EXAMPLES.md) |
-| A request the model cannot settle on | "validar numero" comes back as a conflict with the three candidates it weighed | [intent gallery](crates/regie-intent/EXAMPLES.md) |
+| A request on the edge of a family boundary | "extract a date in ISO format" is answered with a *validation*, so the date inside a sentence is refused | [intent gallery](crates/regie-intent/EXAMPLES.md) |
+| A request the model cannot settle on | "validate a number" comes back as an ambiguity with the three candidates it weighed | [intent gallery](crates/regie-intent/EXAMPLES.md) |
 | A shape no family accepts | a Brazilian date is refused with nothing to show for it, instead of a guess | [search gallery](crates/regie-search/EXAMPLES.md) |
 | Two values of one family | one CPF demanded to match and another demanded to be refused leave the search with no answer | [search gallery](crates/regie-search/EXAMPLES.md) |
 | An artifact that was tampered with | the checksum catches a corrupted image before it is linked into firmware | [codec gallery](crates/regie-codec/EXAMPLES.md) |

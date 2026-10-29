@@ -32,11 +32,11 @@ group 2: 10..18 "corp.com"
 $ regie test '^\d{3}-\d{4}$' '555-1234'
 match
 
-$ regie intent 'validar CPF'
+$ regie intent 'validate a CPF'
 summary: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 {"candidate":{"charset":"digits","kind":"brazilian_cpf","max_len":14,"strictness":"standard","type":"validate"},"status":"confident"}
 
-$ regie search 'validar CPF' --positive '123.456.789-09' --negative '123.456.789'
+$ regie search 'validate a CPF' --positive '123.456.789-09' --negative '123.456.789'
 search: confident
 candidate: validate brazilian_cpf strictness=standard charset=digits max_len=14
 rank 1: validate brazilian_cpf score=1100 positives=1/1 negatives_rejected=1/1
@@ -63,8 +63,8 @@ what does this request actually catch? It interprets the request, compiles the
 specification and prints the haystack with the part that matched underlined:
 
 ```console
-$ regie show 'extrair o email' --input 'mail ana@corp.com now'
-request: extrair o email
+$ regie show 'extract the email' --input 'mail ana@corp.com now'
+request: extract the email
 intent: confident extract emails boundary=greedy capture=whole
 haystack: mail ana@corp.com now
      ^^^^^^^^^^^^ matched 5..17
@@ -77,8 +77,8 @@ A validation is anchored, so a value inside a sentence is not a match. The
 subcommand says so, instead of leaving a bare "no match" behind:
 
 ```console
-$ regie show 'validar CPF' --input 'the cpf of ana is 123.456.789-09'
-request: validar CPF
+$ regie show 'validate a CPF' --input 'the cpf of ana is 123.456.789-09'
+request: validate a CPF
 intent: confident validate brazilian_cpf strictness=standard charset=digits max_len=14
 haystack: the cpf of ana is 123.456.789-09
 no match

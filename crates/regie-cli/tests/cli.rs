@@ -126,7 +126,7 @@ fn test_exits_with_one_when_the_pattern_does_not_match() {
 
 #[test]
 fn intent_prints_a_summary_and_a_parseable_json_line() {
-    let output = run(&["intent", "validar CPF"]);
+    let output = run(&["intent", "validate a CPF"]);
 
     assert_eq!(code(&output), Some(0));
     let text = stdout(&output);
@@ -153,7 +153,7 @@ fn intent_prints_a_summary_and_a_parseable_json_line() {
 fn search_prints_the_confident_candidate_and_the_scores() {
     let output = run(&[
         "search",
-        "validar CPF",
+        "validate a CPF",
         "--positive",
         "123.456.789-09",
         "--negative",
@@ -181,7 +181,7 @@ fn search_prints_the_confident_candidate_and_the_scores() {
 
 #[test]
 fn search_without_a_positive_example_is_a_usage_error() {
-    let output = run(&["search", "validar CPF"]);
+    let output = run(&["search", "validate a CPF"]);
 
     assert_eq!(code(&output), Some(2));
     assert!(
@@ -304,7 +304,7 @@ fn help_lists_every_subcommand() {
 fn show_underlines_the_match_and_lists_the_capture_groups() {
     let output = run(&[
         "show",
-        "extrair o email",
+        "extract the email",
         "--input",
         "mail ana@corp.com now",
     ]);
@@ -321,7 +321,7 @@ fn show_underlines_the_match_and_lists_the_capture_groups() {
 fn show_explains_that_a_validation_is_anchored() {
     let output = run(&[
         "show",
-        "validar CPF",
+        "validate a CPF",
         "--input",
         "the cpf of ana is 123.456.789-09",
     ]);
@@ -337,7 +337,7 @@ fn show_explains_that_a_validation_is_anchored() {
 
 #[test]
 fn show_without_a_haystack_is_a_usage_error() {
-    let output = run(&["show", "validar CPF"]);
+    let output = run(&["show", "validate a CPF"]);
 
     assert_eq!(code(&output), Some(2));
     assert!(
@@ -351,7 +351,7 @@ fn show_without_a_haystack_is_a_usage_error() {
 fn show_writes_plain_text_into_a_pipe() {
     let output = run(&[
         "show",
-        "extrair o email",
+        "extract the email",
         "--input",
         "mail ana@corp.com now",
     ]);
@@ -379,13 +379,13 @@ fn serve_answers_the_page_and_the_analysis() {
     let analysis = page.as_ref().and_then(|_| {
         ask(
             port,
-            "GET /analyse?request=extrair%20o%20email&haystack=mail%20ana@corp.com%20now HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            "GET /analyse?request=extract%20the%20email&haystack=mail%20ana@corp.com%20now HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
         )
     });
     let validation = analysis.as_ref().and_then(|_| {
         ask(
             port,
-            "GET /analyse?request=validar%20CPF&haystack=123.456.789-09 HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            "GET /analyse?request=validate%20a%20CPF&haystack=123.456.789-09 HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
         )
     });
 

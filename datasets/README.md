@@ -10,7 +10,7 @@ The file holds one JSON object per line, UTF-8, LF line endings.
 ## Format
 
 ```json
-{"request": "validar um cpf", "spec": {"Validate": {"kind": "BrazilianCpf", "strictness": "Standard", "charset": "Digits", "max_len": 14}}, "positives": ["123.456.789-09"], "negatives": ["123.456.789-0"]}
+{"request": "validate cpf", "spec": {"Validate": {"kind": "BrazilianCpf", "strictness": "Standard", "charset": "Digits", "max_len": 14}}, "positives": ["123.456.789-09", "12345678909"], "negatives": ["123.456.789", "123.456.789-0"]}
 ```
 
 | field | meaning |
