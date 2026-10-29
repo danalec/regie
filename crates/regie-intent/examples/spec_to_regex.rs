@@ -23,17 +23,25 @@ fn main() {
     // One request per family, with the samples the automaton is checked
     // against: the first one has to match, the second one has to be refused.
     let cases: [(&str, &str, &str); 7] = [
-        ("validar um CPF", "123.456.789-09", "not a cpf"),
+        ("validate a CPF", "123.456.789-09", "not a cpf"),
         ("check if this is a valid email address", "a@b.co", "nope"),
-        ("extrair os numeros entre colchetes", "[42] here", "nope"),
-        ("extrair as palavras entre aspas", "say \"hi\"", "no quotes"),
+        ("extract the text between brackets", "[42] here", "nope"),
+        ("extract the quoted text", "say \"hi\"", "no quotes"),
         (
             "extract the url from the text",
             "see https://x.io",
             "no url",
         ),
-        ("bloquear a palavra spam", "this is spam", "this is fine"),
-        ("criar um padrão de 6 alfanuméricos", "abc123", "abc12"),
+        (
+            "block messages containing the word spam",
+            "this is spam",
+            "this is fine",
+        ),
+        (
+            "build a custom pattern of 6 alphanumeric characters",
+            "abc123",
+            "abc12",
+        ),
     ];
 
     for (request, positive, negative) in cases {

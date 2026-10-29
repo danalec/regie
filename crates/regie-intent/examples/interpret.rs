@@ -18,11 +18,11 @@ fn main() {
     let model = IntentModel::embedded();
 
     let requests = [
-        "validar um CPF",
+        "validate a CPF",
         "check if this is a valid email address",
-        "extrair os numeros entre colchetes",
-        "extrair as palavras entre aspas",
-        "bloquear a palavra spam",
+        "extract the text between brackets",
+        "extract the quoted text",
+        "block messages containing the word spam",
         "extract the url from the text",
         "asdkjhaskjdhaskjdh",
     ];

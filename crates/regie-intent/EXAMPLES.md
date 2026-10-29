@@ -34,7 +34,7 @@ Run it:
 
 ```console
 $ cargo run -p regie-intent --example interpret
-request: "validar um CPF"
+request: "validate a CPF"
   -> confident: brazilian_cpf
        "123.456.789-09" -> true
        "nope" -> false
@@ -44,17 +44,17 @@ request: "check if this is a valid email address"
        "ana@corp.com" -> true
        "nope" -> false
 
-request: "extrair os numeros entre colchetes"
+request: "extract the text between brackets"
   -> confident: between_delimiters
        "the value is [42] here" -> true
        "nothing here" -> false
 
-request: "extrair as palavras entre aspas"
+request: "extract the quoted text"
   -> confident: quoted
        "the value is [42] here" -> false
        "nothing here" -> false
 
-request: "bloquear a palavra spam"
+request: "block messages containing the word spam"
   -> confident: filter
        "this is spam" -> true
        "this is fine" -> false
@@ -80,7 +80,7 @@ Run it:
 
 ```console
 $ cargo run -p regie-intent --example spec_to_regex
-request: "validar um CPF"
+request: "validate a CPF"
   intent:   confident
   spec:     validate brazilian_cpf (strictness=Standard, charset=Digits, max_len=Some(14))
   compiled: 0 capture groups
@@ -94,14 +94,14 @@ request: "check if this is a valid email address"
   "a@b.co" -> match
   "nope" -> no match
 
-request: "extrair os numeros entre colchetes"
+request: "extract the text between brackets"
   intent:   confident
   spec:     extract between_delimiters (boundary=Greedy, capture=Group)
   compiled: 1 capture group
   "[42] here" -> match, group 1 = "42"
   "nope" -> no match
 
-request: "extrair as palavras entre aspas"
+request: "extract the quoted text"
   intent:   confident
   spec:     extract quoted (boundary=Greedy, capture=Group)
   compiled: 2 capture groups
@@ -115,14 +115,14 @@ request: "extract the url from the text"
   "see https://x.io" -> match, group 1 = "https://x.io"
   "no url" -> no match
 
-request: "bloquear a palavra spam"
+request: "block messages containing the word spam"
   intent:   confident
   spec:     filter (action=Block, terms=["spam"])
   compiled: 0 capture groups
   "this is spam" -> match
   "this is fine" -> no match
 
-request: "criar um padrão de 6 alfanuméricos"
+request: "build a custom pattern of 6 alphanumeric characters"
   intent:   confident
   spec:     custom (template=Repeat { class: Alphanumeric, count: 6 }, min_len=Some(6), max_len=Some(6))
   compiled: 0 capture groups
@@ -141,25 +141,25 @@ Run it:
 
 ```console
 $ cargo run -p regie-intent --example ambiguity
-request: "extrair o texto"
+request: "extract the text"
   reason:      ConflictingKinds
-  suggestions: between_delimiters, quoted, ip_addresses
+  suggestions: words, urls, ip_addresses
   caller asks:
     Which one did you mean?
-      1) between_delimiters
-      2) quoted
+      1) words
+      2) urls
       3) ip_addresses
 
-request: "data"
+request: "date"
   reason:      ConflictingKinds
-  suggestions: iso_date, dates, iso_date_time
+  suggestions: iso_date, dates, email
   caller asks:
     Which one did you mean?
       1) iso_date
       2) dates
-      3) iso_date_time
+      3) email
 
-request: "validar algo"
+request: "validate something"
   reason:      LowConfidence
   suggestions: url, uri, brazilian_cpf
   caller asks:
@@ -168,7 +168,7 @@ request: "validar algo"
       2) uri
       3) brazilian_cpf
 
-request: "me ajuda"
+request: "help me"
   reason:      LowConfidence
   suggestions: (none)
   caller asks:
@@ -222,8 +222,8 @@ Source: [`crates/regie-intent/examples/model_profile.rs`](examples/model_profile
 What it shows: the requests that sit on the edge of a family boundary, and
 what the model does with them.  The model chooses one value out of a closed
 enumeration, so a wrong guess yields a specification that is *valid* but
-answers a different question than the request asked - "extrair a data no
-formato ISO" is answered with a validation of an ISO date and not with an
+answers a different question than the request asked - "extract a date in ISO
+format" is answered with a validation of an ISO date and not with an
 extraction, so the date inside a sentence is refused.  A request the model
 cannot settle on is not answered at all: it comes back as an ambiguity that
 carries the candidates it could not choose between, and a request that is not
@@ -233,58 +233,58 @@ Run it:
 
 ```console
 $ cargo run -p regie-intent --example hard_requests
-request: "validar CNPJ"
+request: "validate a CNPJ"
   outcome:   confident
   spec:      validation brazilian_cnpj (strictness=Standard, charset=Digits, max_len=Some(18))
   value:          "12.345.678/0001-95" -> match
   one digit short:"12.345.678/0001-9" -> no match
 
-request: "validar CPF"
+request: "validate a CPF"
   outcome:   confident
   spec:      validation brazilian_cpf (strictness=Standard, charset=Digits, max_len=Some(14))
   value:          "123.456.789-09" -> match
   no check digits:"123.456.789" -> no match
 
-request: "validar NIF"
+request: "validate a NIF"
   outcome:   confident
   spec:      validation portuguese_nif (strictness=Standard, charset=Digits, max_len=Some(9))
   value:          "123456789" -> match
   punctuated:     "123.456.789" -> no match
 
-request: "validar telefone brasileiro"
+request: "validate a brazilian phone number"
   outcome:   confident
   spec:      validation brazilian_phone (strictness=Standard, charset=Digits, max_len=Some(17))
   value:          "+55 11 91234-5678" -> match
   free text:      "not a phone" -> no match
 
-request: "validar CEP"
+request: "validate a brazilian postal code"
   outcome:   confident
   spec:      validation brazilian_postal_code (strictness=Standard, charset=Digits, max_len=Some(9))
   value:          "01310-100" -> match
   truncated:      "01310" -> no match
 
-request: "extrair a data no formato ISO"
+request: "extract a date in ISO format"
   outcome:   confident
   spec:      validation iso_date (strictness=Standard, charset=Digits, max_len=Some(10))
   value:          "2026-10-29" -> match
   in a sentence:  "the date is 2026-10-29" -> no match
 
-request: "extrair as palavras entre aspas"
+request: "extract the quoted text"
   outcome:   confident
   spec:      extraction quoted (boundary=Greedy, capture=Group)
   value:          "say \"hi\"" -> match
   no quotes:      "no quotes here" -> no match
 
-request: "extrair o numero do processo"
+request: "extract the numbers"
   outcome:   confident
   spec:      extraction numbers (boundary=Greedy, capture=Whole)
   value:          "process 12345" -> match
   no digits:      "no digits here" -> no match
 
-request: "bloquear a palavra urgente"
+request: "block messages containing the word urgent"
   outcome:   confident
-  spec:      filter (action=Block, terms=["urgente"])
-  value:          "a urgente message" -> match
+  spec:      filter (action=Block, terms=["urgent"])
+  value:          "an urgent message" -> match
   no term:        "a quiet message" -> no match
 
 request: "check if this is a valid email address"
@@ -293,12 +293,12 @@ request: "check if this is a valid email address"
   value:          "ana@corp.com" -> match
   not an address: "not an email" -> no match
 
-request: "validar numero"
-  outcome:   ambiguous (ConflictingKinds)
+request: "validate a number"
+  outcome:   ambiguous (LowConfidence)
   candidates:
-    validation integer (strictness=Standard, charset=Digits, max_len=Some(20))
-    validation portuguese_nif (strictness=Standard, charset=Digits, max_len=Some(9))
+    validation decimal (strictness=Standard, charset=Digits, max_len=Some(32))
     validation brazilian_phone (strictness=Standard, charset=Digits, max_len=Some(17))
+    validation credit_card (strictness=Standard, charset=Digits, max_len=Some(19))
 
 request: "asdkjhaskjdhaskjdh"
   outcome:   ambiguous (LowConfidence)
@@ -307,3 +307,128 @@ request: "asdkjhaskjdhaskjdh"
 ```
 
 Source: [`crates/regie-intent/examples/hard_requests.rs`](examples/hard_requests.rs)
+
+## `languages`
+
+What it shows: the languages the model understands.  The same request in
+English and in Brazilian Portuguese reaches the same family, a request in a
+language the model does not understand comes back as an ambiguity, and the one
+exception - a request that carries nothing but the acronym of a family - is
+answered in any language, because the acronym is the same everywhere and the
+model keys on it rather than on the sentence around it.
+
+The list of languages is written down in
+[`docs/LANGUAGES.md`](../../docs/LANGUAGES.md).
+
+Run it:
+
+```console
+$ cargo run -p regie-intent --example languages
+the same request in the two supported languages:
+
+a CPF:
+  english     "validate a CPF"
+  portuguese  "validar um CPF"
+  english     -> confident brazilian_cpf
+  portuguese  -> confident brazilian_cpf
+  the same    -> yes
+
+a CNPJ:
+  english     "validate a CNPJ"
+  portuguese  "validar um CNPJ"
+  english     -> confident brazilian_cnpj
+  portuguese  -> confident brazilian_cnpj
+  the same    -> yes
+
+a NIF:
+  english     "validate a NIF"
+  portuguese  "validar um NIF"
+  english     -> confident portuguese_nif
+  portuguese  -> confident portuguese_nif
+  the same    -> yes
+
+a Brazilian phone number:
+  english     "validate a brazilian phone number"
+  portuguese  "validar telefone brasileiro"
+  english     -> confident brazilian_phone
+  portuguese  -> confident brazilian_phone
+  the same    -> yes
+
+a Brazilian postal code:
+  english     "validate a brazilian postal code"
+  portuguese  "validar CEP"
+  english     -> confident brazilian_postal_code
+  portuguese  -> confident brazilian_postal_code
+  the same    -> yes
+
+an email address:
+  english     "validate an email address"
+  portuguese  "validar email"
+  english     -> confident email
+  portuguese  -> confident email
+  the same    -> yes
+
+a date:
+  english     "validate a date"
+  portuguese  "validar data"
+  english     -> confident iso_date
+  portuguese  -> confident iso_date
+  the same    -> yes
+
+the quoted text:
+  english     "extract the quoted text"
+  portuguese  "extrair as palavras entre aspas"
+  english     -> confident quoted
+  portuguese  -> confident quoted
+  the same    -> yes
+
+the numbers:
+  english     "extract the numbers"
+  portuguese  "extrair o numero do processo"
+  english     -> confident numbers
+  portuguese  -> confident numbers
+  the same    -> yes
+
+the text between brackets:
+  english     "extract the text between brackets"
+  portuguese  "extrair os numeros entre colchetes"
+  english     -> confident between_delimiters
+  portuguese  -> confident between_delimiters
+  the same    -> yes
+
+a word to block:
+  english     "block messages containing the word spam"
+  portuguese  "bloquear a palavra spam"
+  english     -> confident filter
+  portuguese  -> confident filter
+  the same    -> yes
+
+a custom shape:
+  english     "build a custom pattern of 6 alphanumeric characters"
+  portuguese  "criar um padrão de 6 caracteres alfanuméricos"
+  english     -> confident custom
+  portuguese  -> confident custom
+  the same    -> yes
+
+a request in a language the model does not understand:
+
+  "validar un correo electrónico"
+    -> ambiguous LowConfidence [["uri", "brazilian_postal_code", "brazilian_license_plate"]]
+  "valider une adresse e-mail"
+    -> ambiguous ConflictingKinds [["email", "emails", "dates"]]
+  "eine E-Mail-Adresse validieren"
+    -> ambiguous ConflictingKinds [["email", "emails", "dates"]]
+  "validare un indirizzo email"
+    -> ambiguous LowConfidence [["email", "emails", "numbers"]]
+
+the exception: an acronym is not a language
+
+  "cpf valideren"
+    -> confident brazilian_cpf
+  "cpf を検証する"
+    -> confident brazilian_cpf
+  "验证 CPF"
+    -> confident brazilian_cpf
+```
+
+Source: [`crates/regie-intent/examples/languages.rs`](examples/languages.rs)

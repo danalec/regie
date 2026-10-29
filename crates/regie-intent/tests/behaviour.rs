@@ -54,10 +54,10 @@ fn an_ambiguous_intent_carries_suggestions() {
 fn the_model_is_deterministic() {
     let model = IntentModel::embedded();
     for request in [
-        "validar um cpf",
-        "extrair o que está entre colchetes",
-        "bloquear as palavras spam e phishing",
-        "criar um padrão de 6 caracteres alfanuméricos",
+        "validate a CPF",
+        "extract the text between brackets",
+        "block the words spam and phishing",
+        "build a custom pattern of 6 alphanumeric characters",
         "qwertyuiop zzzz",
     ] {
         let first = model.interpret(request);
@@ -75,6 +75,10 @@ fn the_model_is_deterministic() {
 }
 
 /// Accented and unaccented spellings of the same request agree.
+///
+/// The accents belong to the Brazilian Portuguese half of the corpus, which is
+/// where the accented spellings of a request live, so the pair is written in
+/// that language.
 #[test]
 fn accents_are_folded() {
     let model = IntentModel::embedded();
@@ -87,7 +91,7 @@ fn accents_are_folded() {
 #[test]
 fn a_plain_request_is_classified() {
     let model = IntentModel::embedded();
-    match model.interpret("validar um cpf") {
+    match model.interpret("validate a CPF") {
         IntentSpec::Confident(CandidateSpec::Validate {
             kind,
             strictness,
@@ -107,7 +111,7 @@ fn a_plain_request_is_classified() {
 #[test]
 fn a_delimited_request_is_classified() {
     let model = IntentModel::embedded();
-    match model.interpret("extrair o texto entre colchetes") {
+    match model.interpret("extract the text between brackets") {
         IntentSpec::Confident(CandidateSpec::Extract { kind, .. }) => {
             assert_eq!(kind, ExtractionKind::BetweenDelimiters);
         }
@@ -119,7 +123,7 @@ fn a_delimited_request_is_classified() {
 #[test]
 fn a_custom_request_is_classified() {
     let model = IntentModel::embedded();
-    match model.interpret("criar um padr\u{e3}o de 6 caracteres alfanumericos") {
+    match model.interpret("build a custom pattern of 6 alphanumeric characters") {
         IntentSpec::Confident(CandidateSpec::Custom { template, params }) => {
             match template {
                 PatternTemplate::Repeat { class, count } => {
@@ -184,7 +188,7 @@ fn the_vocabulary_is_sorted() {
 #[test]
 fn a_wrong_guess_is_a_valid_specification_for_another_family() {
     let model = IntentModel::embedded();
-    match model.interpret("extrair a data no formato ISO") {
+    match model.interpret("extract a date in ISO format") {
         IntentSpec::Confident(CandidateSpec::Validate { kind, .. }) => {
             assert_eq!(kind, ValidationKind::IsoDate);
         }
@@ -193,7 +197,7 @@ fn a_wrong_guess_is_a_valid_specification_for_another_family() {
 
     // The specification is a *validation*, so it is anchored: the date inside
     // a sentence is refused, even though the request asked to extract it.
-    let spec = model.interpret("extrair a data no formato ISO");
+    let spec = model.interpret("extract a date in ISO format");
     let candidate = match spec {
         IntentSpec::Confident(candidate) => candidate,
         other => panic!("unexpected specification {:?}", other),
@@ -203,16 +207,44 @@ fn a_wrong_guess_is_a_valid_specification_for_another_family() {
     assert!(!regex.is_match(b"the date is 2026-10-29"));
 }
 
-/// A request the model cannot settle on carries the candidates it weighed.
+/// A request the model cannot settle between two kinds carries the kinds it
+/// weighed.
 #[test]
 fn a_conflicting_request_carries_its_candidates() {
     let model = IntentModel::embedded();
-    match model.interpret("validar numero") {
+    match model.interpret("extract the text") {
         IntentSpec::Ambiguous {
             reason,
             suggestions,
         } => {
             assert_eq!(reason, AmbiguityReason::ConflictingKinds);
+            assert_eq!(suggestions.len(), 3);
+            let kinds: Vec<ExtractionKind> = suggestions
+                .iter()
+                .filter_map(|candidate| match candidate {
+                    CandidateSpec::Extract { kind, .. } => Some(*kind),
+                    _ => None,
+                })
+                .collect();
+            assert!(kinds.contains(&ExtractionKind::Words));
+            assert!(kinds.contains(&ExtractionKind::Urls));
+            assert!(kinds.contains(&ExtractionKind::IpAddresses));
+        }
+        other => panic!("unexpected specification {:?}", other),
+    }
+}
+
+/// A request the model is not confident about carries the candidates it
+/// weighed.
+#[test]
+fn an_uncertain_request_carries_its_candidates() {
+    let model = IntentModel::embedded();
+    match model.interpret("validate a number") {
+        IntentSpec::Ambiguous {
+            reason,
+            suggestions,
+        } => {
+            assert_eq!(reason, AmbiguityReason::LowConfidence);
             assert_eq!(suggestions.len(), 3);
             let kinds: Vec<ValidationKind> = suggestions
                 .iter()
@@ -221,9 +253,9 @@ fn a_conflicting_request_carries_its_candidates() {
                     _ => None,
                 })
                 .collect();
-            assert!(kinds.contains(&ValidationKind::Integer));
-            assert!(kinds.contains(&ValidationKind::PortugueseNif));
+            assert!(kinds.contains(&ValidationKind::Decimal));
             assert!(kinds.contains(&ValidationKind::BrazilianPhone));
+            assert!(kinds.contains(&ValidationKind::CreditCard));
         }
         other => panic!("unexpected specification {:?}", other),
     }
@@ -250,15 +282,15 @@ fn a_request_without_a_candidate_carries_nothing() {
 fn the_reachable_families_are_real() {
     let model = IntentModel::embedded();
     for request in [
-        "validar CNPJ",
-        "validar CPF",
-        "validar NIF",
-        "validar telefone brasileiro",
-        "validar CEP",
-        "validar email",
-        "extrair as palavras entre aspas",
-        "extrair o numero do processo",
-        "bloquear a palavra urgente",
+        "validate a CNPJ",
+        "validate a CPF",
+        "validate a NIF",
+        "validate a brazilian phone number",
+        "validate a brazilian postal code",
+        "validate an email address",
+        "extract the quoted text",
+        "extract the numbers",
+        "block messages containing the word urgent",
         "check if this is a valid email address",
     ] {
         match model.interpret(request) {

@@ -31,7 +31,7 @@ use regie_intent::IntentModel;
 
 let model = IntentModel::embedded();
 
-match model.interpret("validar um CPF") {
+match model.interpret("validate a CPF") {
     IntentSpec::Confident(spec) => {
         let re = regie_core::Regex::from_spec(&spec).expect("the specification compiles");
         assert!(re.is_match(b"123.456.789-09"));
@@ -53,7 +53,7 @@ into the engine.
 the verified search uses as its seeds:
 
 ```rust
-let candidates = model.candidates("extrair os numeros");
+let candidates = model.candidates("extract the numbers");
 assert!(!candidates.is_empty());
 ```
 
@@ -68,7 +68,7 @@ different question.
 
 ```console
 $ cargo run -p regie-intent --example spec_to_regex
-request: "validar um CPF"
+request: "validate a CPF"
   intent:   confident
   spec:     validate brazilian_cpf (strictness=Standard, charset=Digits, max_len=Some(14))
   compiled: 0 capture groups
@@ -76,6 +76,14 @@ request: "validar um CPF"
   "not a cpf" -> no match
   ...
 ```
+
+## The languages it understands
+
+English and Brazilian Portuguese, and nothing else.  The same request in
+either language reaches the same family, and a request in any other language
+comes back as an ambiguity - the model did not understand it, and it says so
+instead of guessing.  The list is in [`docs/LANGUAGES.md`](../../docs/LANGUAGES.md)
+and it is checked by `tests/languages.rs`.
 
 ## The training
 

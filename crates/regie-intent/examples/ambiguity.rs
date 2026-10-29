@@ -20,10 +20,10 @@ fn main() {
     // The first three requests are in the corpus but do not say enough; the
     // last two are out of distribution - the model has no word for them.
     let requests = [
-        "extrair o texto",
-        "data",
-        "validar algo",
-        "me ajuda",
+        "extract the text",
+        "date",
+        "validate something",
+        "help me",
         "qwertyuiop zzzz",
     ];
 

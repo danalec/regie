@@ -8,10 +8,10 @@
 //!
 //! The model chooses one value out of a closed enumeration of families, so a
 //! request that sits near a boundary is answered with a specification that is
-//! valid but not always the one the request meant: "extrair a data no formato
-//! ISO" is answered with a *validation* of an ISO date, not with an
-//! extraction, and "validar NIF" with the Portuguese NIF.  The answer is never
-//! wrong as a specification - it is wrong as an answer.
+//! valid but not always the one the request meant: "extract a date in ISO
+//! format" is answered with a *validation* of an ISO date, not with an
+//! extraction, and "validate a NIF" with the Portuguese NIF.  The answer is
+//! never wrong as a specification - it is wrong as an answer.
 //!
 //! A request the model cannot settle on is not answered at all: it comes back
 //! as an ambiguity that carries the candidates it could not choose between.
@@ -34,7 +34,7 @@ fn main() {
     // boundary lies.
     let cases: [(&str, Option<Samples>); 12] = [
         (
-            "validar CNPJ",
+            "validate a CNPJ",
             Some((
                 "value",
                 "12.345.678/0001-95",
@@ -43,23 +43,23 @@ fn main() {
             )),
         ),
         (
-            "validar CPF",
+            "validate a CPF",
             Some(("value", "123.456.789-09", "no check digits", "123.456.789")),
         ),
         (
-            "validar NIF",
+            "validate a NIF",
             Some(("value", "123456789", "punctuated", "123.456.789")),
         ),
         (
-            "validar telefone brasileiro",
+            "validate a brazilian phone number",
             Some(("value", "+55 11 91234-5678", "free text", "not a phone")),
         ),
         (
-            "validar CEP",
+            "validate a brazilian postal code",
             Some(("value", "01310-100", "truncated", "01310")),
         ),
         (
-            "extrair a data no formato ISO",
+            "extract a date in ISO format",
             Some((
                 "value",
                 "2026-10-29",
@@ -68,22 +68,22 @@ fn main() {
             )),
         ),
         (
-            "extrair as palavras entre aspas",
+            "extract the quoted text",
             Some(("value", "say \"hi\"", "no quotes", "no quotes here")),
         ),
         (
-            "extrair o numero do processo",
+            "extract the numbers",
             Some(("value", "process 12345", "no digits", "no digits here")),
         ),
         (
-            "bloquear a palavra urgente",
-            Some(("value", "a urgente message", "no term", "a quiet message")),
+            "block messages containing the word urgent",
+            Some(("value", "an urgent message", "no term", "a quiet message")),
         ),
         (
             "check if this is a valid email address",
             Some(("value", "ana@corp.com", "not an address", "not an email")),
         ),
-        ("validar numero", None),
+        ("validate a number", None),
         ("asdkjhaskjdhaskjdh", None),
     ];
 
