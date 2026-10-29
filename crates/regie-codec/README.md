@@ -71,7 +71,9 @@ value `0xFFFFFFFF`, final XOR `0xFFFFFFFF` — the function `zlib` calls
 The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every example of the
 crate with the output it prints: the byte layout of the artifact, the round
 trip through the decoder, the firmware path and the way a corrupt artifact is
-rejected.
+rejected.  It also has the hard artifacts: a real automaton encoded and
+decoded back, compared part by part, and then corrupted in the four ways that
+matter - the magic, the length, the payload and the checksum.
 
 Matching an automaton that was compiled ahead of time:
 

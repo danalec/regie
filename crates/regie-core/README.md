@@ -54,7 +54,10 @@ assert!(re.is_match(b"123.456.789-09"));
 
 The gallery of [`EXAMPLES.md`](EXAMPLES.md) has one runnable program per
 subject: the dialect, the capture groups, the structured specifications, the
-refusals, the budgets, the deterministic automaton and the error type.
+refusals, the budgets, the deterministic automaton and the error type.  It also
+has the hard cases: the patterns that would make a backtracking engine
+explode, the repetitions whose body can match nothing, and the comparison
+between the deterministic automaton and the Pike VM.
 
 Matching a pattern:
 
@@ -147,4 +150,4 @@ cargo test -p regie-core --all-features
 * `tests/property.rs` - the invariants that hold for every input.
 
 The differential test against Python's `re` lives in the workspace and
-covers 21,980 cases.
+covers 24,589 cases.

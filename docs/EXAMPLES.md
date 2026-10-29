@@ -284,15 +284,35 @@ The decode path needs no allocator, which is why the artifact is embedded with
 Every example in the project, in one place per crate:
 
 * [regie-core](crates/regie-core/EXAMPLES.md) — the dialect, capture groups,
-  specifications, refusals, limits, the DFA, the error type.
+  specifications, refusals, limits, the DFA, the error type, the hard patterns,
+  the linear time guarantee.
 * [regie-intent](crates/regie-intent/EXAMPLES.md) — interpreting a request,
-  the ambiguity path, the model profile.
+  the ambiguity path, the model profile, the hard requests.
 * [regie-search](crates/regie-search/EXAMPLES.md) — searching with examples,
-  discriminating between candidates, refusing to settle.
+  discriminating between candidates, refusing to settle, the hard
+  discrimination.
 * [regie-codec](crates/regie-codec/EXAMPLES.md) — the artifact layout, the
-  round trip, a corrupted artifact.
+  round trip, a corrupted artifact, the hard artifacts.
 * [regie-cli](crates/regie-cli/EXAMPLES.md) — every subcommand, and scripting
   with the exit codes.
+
+## When the easy case is not enough
+
+Each crate has a gallery entry for the cases that are *hard*: the ones where
+the obvious answer is wrong, or where the engine has to refuse rather than
+guess. They are worth reading before you trust the engine on something
+awkward.
+
+| The hard case | What it shows | Where |
+|---|---|---|
+| A repetition over a body that can match nothing | `(b*?)*` on `b` is an empty match at `0..0`, the same answer a backtracking engine gives | [core gallery](crates/regie-core/EXAMPLES.md) |
+| A pattern that would explode a backtracking engine | `(a+)+$` over a megabyte of `a` stays linear | [core gallery](crates/regie-core/EXAMPLES.md) |
+| The DFA against the Pike VM | the two paths agree on every hard pattern and every subject | [core gallery](crates/regie-core/EXAMPLES.md) |
+| A request on the edge of a family boundary | "extrair a data no formato ISO" is answered with a *validation*, so the date inside a sentence is refused | [intent gallery](crates/regie-intent/EXAMPLES.md) |
+| A request the model cannot settle on | "validar numero" comes back as a conflict with the three candidates it weighed | [intent gallery](crates/regie-intent/EXAMPLES.md) |
+| A shape no family accepts | a Brazilian date is refused with nothing to show for it, instead of a guess | [search gallery](crates/regie-search/EXAMPLES.md) |
+| Two values of one family | one CPF demanded to match and another demanded to be refused leave the search with no answer | [search gallery](crates/regie-search/EXAMPLES.md) |
+| An artifact that was tampered with | the checksum catches a corrupted image before it is linked into firmware | [codec gallery](crates/regie-codec/EXAMPLES.md) |
 
 The reference for the pattern language itself is
 [docs/SYNTAX.md](SYNTAX.md), with the complete list of what the dialect

@@ -60,7 +60,11 @@ assert!(!candidates.is_empty());
 ## More examples
 
 The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every example of the
-crate, with the output each one prints.
+crate, with the output each one prints.  It also has the hard requests: the
+ones that sit on the edge of a family boundary, the ones the model cannot
+settle on, and the ones it settles on *wrongly* - a request for an extraction
+that comes back as a validation, which is a valid specification for a
+different question.
 
 ```console
 $ cargo run -p regie-intent --example spec_to_regex

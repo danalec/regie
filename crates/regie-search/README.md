@@ -78,7 +78,9 @@ family.
 ## More examples
 
 The gallery of [`EXAMPLES.md`](EXAMPLES.md) documents every example of the
-crate, with the output each one prints.
+crate, with the output each one prints.  It also has the hard discrimination:
+the example sets that separate families that look alike, and the shapes that
+no family accepts, where the search refuses to settle instead of guessing.
 
 ```console
 $ cargo run -p regie-search --example discriminate

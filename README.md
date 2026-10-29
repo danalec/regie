@@ -52,11 +52,15 @@ then links to a gallery per crate:
 
 | gallery | what it covers |
 |---|---|
-| [regie-core](crates/regie-core/EXAMPLES.md) | the dialect, capture groups, specifications, refusals, limits, the DFA, the error type |
-| [regie-intent](crates/regie-intent/EXAMPLES.md) | interpreting a request, the ambiguity path, the model profile |
-| [regie-search](crates/regie-search/EXAMPLES.md) | searching with examples, discriminating between candidates, refusing to settle |
-| [regie-codec](crates/regie-codec/EXAMPLES.md) | the artifact layout, the round trip, a corrupted artifact |
+| [regie-core](crates/regie-core/EXAMPLES.md) | the dialect, capture groups, specifications, refusals, limits, the DFA, the error type, the hard patterns, the linear time guarantee |
+| [regie-intent](crates/regie-intent/EXAMPLES.md) | interpreting a request, the ambiguity path, the model profile, the hard requests |
+| [regie-search](crates/regie-search/EXAMPLES.md) | searching with examples, discriminating between candidates, refusing to settle, the hard discrimination |
+| [regie-codec](crates/regie-codec/EXAMPLES.md) | the artifact layout, the round trip, a corrupted artifact, the hard artifacts |
 | [regie-cli](crates/regie-cli/EXAMPLES.md) | every subcommand, and scripting with the exit codes |
+
+Every runnable example in the project has its output checked by
+`tools/check_examples.py`, so the quotes in the galleries are the output of
+the code, not a transcription of it.
 
 ## The crates
 
@@ -178,7 +182,7 @@ rather than a reinterpretation. [docs/SYNTAX.md](docs/SYNTAX.md) has the
 full grammar and the complete list of refusals.
 
 The dialect is checked against Python's `re` with a differential test that
-compares the two engines on **21,980** cases, including the cases where
+compares the two engines on **24,589** cases, including the cases where
 neither matches and the cases where both refuse the pattern. The current
 result is zero mismatches.
 
@@ -299,8 +303,8 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 181 unit, integration and documentation tests |
-| `tools/differential_test.py` | 21,980 cases against Python's `re` |
+| `cargo test --workspace` | 201 unit, integration and documentation tests |
+| `tools/differential_test.py` | 24,589 cases against Python's `re` |
 | `tools/check_examples.py` | every output quoted in the documentation |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
 | `fuzz/` | two fuzz targets: the parser and the compiler |

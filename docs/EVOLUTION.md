@@ -174,7 +174,7 @@ machine and are not a promise about any other. The suite is the promise.
 
 ### A formal specification of the matching semantics
 
-The semantics are checked against Python's `re` on 21,980 cases, and the
+The semantics are checked against Python's `re` on 24,589 cases, and the
 property tests check the invariants. What is missing is a written
 specification of the leftmost-first rule that the two of them implement,
 so that a reader does not have to infer it from the code.
