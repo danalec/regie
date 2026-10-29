@@ -241,7 +241,7 @@ are:
 The engine is tested at four levels, and the levels answer different
 questions:
 
-1. **Unit and integration tests** pin the behaviour: 171 tests across the
+1. **Unit and integration tests** pin the behaviour: 176 tests across the
    workspace, covering the matcher, the parser, the compiler, the automaton,
    the model, the search, the codec and the command line.
 2. **A differential test** compares the engine against Python's `re` on

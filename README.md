@@ -272,7 +272,7 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 171 unit, integration and documentation tests |
+| `cargo test --workspace` | 176 unit, integration and documentation tests |
 | `tools/differential_test.py` | 21,323 cases against Python's `re` |
 | `tools/check_examples.py` | every output quoted in the documentation |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
