@@ -393,7 +393,7 @@ fn serve_answers_the_page_and_the_analysis() {
     let _ = child.wait();
 
     let page = page.expect("the server did not answer in time");
-    assert!(page.contains("regie - the live view"), "{page}");
+    assert!(page.contains("regie - the workbench"), "{page}");
 
     let answer = analysis.expect("the server did not answer the analysis");
     let value: serde_json::Value =
@@ -418,4 +418,129 @@ fn the_version_is_reported() {
 
     assert_eq!(code(&output), Some(0));
     assert!(stdout(&output).starts_with("regie "), "{}", stdout(&output));
+}
+
+/// Starts the server and returns the port it listens on.
+fn start_server() -> (u16, std::process::Child) {
+    let port = free_port();
+    let child = Command::new(BIN)
+        .arg("serve")
+        .arg("--port")
+        .arg(port.to_string())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("the server could not be started");
+    assert!(
+        wait_for_the_server(port).is_some(),
+        "the server did not answer in time"
+    );
+    (port, child)
+}
+
+#[test]
+fn the_server_answers_a_raw_pattern() {
+    let (port, mut child) = start_server();
+
+    // The pattern is `\w+@[a-z]+\.[\w]+`: a word, an at sign, a lower-case
+    // run, a dot and a word.  It lands on `ana@corp.com`, the bytes 5 to 17.
+    let answer = ask(
+        port,
+        "GET /pattern?pattern=%5Cw%2B%40%5Ba-z%5D%2B%5C.%5B%5Cw%5D%2B&haystack=mail%20ana%40corp.com%20now HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let answer = answer.expect("the server did not answer");
+    let value: serde_json::Value =
+        serde_json::from_str(body(&answer)).expect("the answer is not valid JSON");
+    assert_eq!(value["status"], "compiled");
+    assert_eq!(value["matched"], true);
+    assert_eq!(value["start"], 5);
+    assert_eq!(value["end"], 17);
+    assert_eq!(
+        value["groups"]
+            .as_array()
+            .expect("the groups are a list")
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn the_server_refuses_a_pattern_the_engine_refuses() {
+    let (port, mut child) = start_server();
+
+    let answer = ask(
+        port,
+        "GET /pattern?pattern=%28%3F%3Cname%3Ea%29&haystack=a HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let answer = answer.expect("the server did not answer");
+    let value: serde_json::Value =
+        serde_json::from_str(body(&answer)).expect("the answer is not valid JSON");
+    assert_eq!(value["status"], "error");
+    assert_eq!(value["error_kind"], "Unsupported");
+    assert!(value["error_position"].is_number(), "{value}");
+}
+
+#[test]
+fn the_server_reports_the_automaton_of_a_pattern() {
+    let (port, mut child) = start_server();
+
+    let answer = ask(
+        port,
+        "GET /automaton?pattern=%5Cd%2B HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let answer = answer.expect("the server did not answer");
+    let value: serde_json::Value =
+        serde_json::from_str(body(&answer)).expect("the answer is not valid JSON");
+    assert_eq!(value["status"], "ok");
+    assert!(value["states"].as_u64().expect("the states are a number") >= 2);
+    assert!(value["classes"].as_u64().expect("the classes are a number") >= 1);
+    assert!(!value["transitions"]
+        .as_array()
+        .expect("the transitions are a list")
+        .is_empty());
+}
+
+#[test]
+fn the_server_reports_the_automaton_of_a_request() {
+    let (port, mut child) = start_server();
+
+    let answer = ask(
+        port,
+        "GET /automaton?request=validate%20a%20CPF HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let answer = answer.expect("the server did not answer");
+    let value: serde_json::Value =
+        serde_json::from_str(body(&answer)).expect("the answer is not valid JSON");
+    assert_eq!(value["status"], "ok");
+    assert_eq!(value["kind"], "validate brazilian_cpf");
+    assert!(value["states"].as_u64().expect("the states are a number") >= 2);
+}
+
+#[test]
+fn the_server_serves_the_script_of_the_page() {
+    let (port, mut child) = start_server();
+
+    let answer = ask(
+        port,
+        "GET /app.js HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let answer = answer.expect("the server did not answer");
+    assert!(answer.contains("200 OK"), "{answer}");
+    assert!(answer.contains("RegieMarkdown"), "{answer}");
+    assert!(answer.contains("RegieEditor"), "{answer}");
 }

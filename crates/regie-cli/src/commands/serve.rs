@@ -11,7 +11,7 @@
 use crate::render;
 use crate::{CliError, EXIT_OK};
 use regie_core::spec::{CandidateSpec, IntentSpec};
-use regie_core::Regex;
+use regie_core::{Dfa, Regex, RegexBuilder, RegexError};
 use regie_intent::IntentModel;
 use serde_json::json;
 use std::io::{Read, Write};
@@ -20,6 +20,16 @@ use std::time::Duration;
 
 /// The page the server serves.
 const PAGE: &str = include_str!("../../web/index.html");
+
+/// The script the page loads.
+///
+/// The three parts are one file on the wire, so the page needs a single
+/// request; each part is a module that publishes itself on the window.
+const APP: &str = concat!(
+    include_str!("../../web/markdown.js"),
+    include_str!("../../web/editor.js"),
+    include_str!("../../web/workbench.js"),
+);
 
 /// The largest request the server reads.
 const MAX_REQUEST: usize = 64 * 1024;
@@ -76,10 +86,12 @@ fn handle(stream: &mut TcpStream) -> std::io::Result<()> {
         None => (target, String::new()),
     };
 
-    let (content_type, body) = if path == "/analyse" {
-        ("application/json", analyse(&query))
-    } else {
-        ("text/html; charset=utf-8", PAGE.to_owned())
+    let (content_type, body) = match path.as_str() {
+        "/analyse" => ("application/json", analyse(&query)),
+        "/pattern" => ("application/json", pattern(&query)),
+        "/automaton" => ("application/json", automaton(&query)),
+        "/app.js" => ("application/javascript; charset=utf-8", APP.to_owned()),
+        _ => ("text/html; charset=utf-8", PAGE.to_owned()),
     };
 
     let response = format!(
@@ -164,16 +176,7 @@ fn analyse(query: &str) -> String {
                             answer["end"] = json!(span.end);
                             let mut groups = Vec::new();
                             if let Some(captures) = regex.captures(bytes) {
-                                for index in 0..captures.len() {
-                                    if let Some(group) = captures.get(index) {
-                                        groups.push(json!({
-                                            "index": index,
-                                            "start": group.start,
-                                            "end": group.end,
-                                            "text": String::from_utf8_lossy(&bytes[group.start..group.end]),
-                                        }));
-                                    }
-                                }
+                                groups = groups_of(&captures, bytes);
                             }
                             answer["groups"] = json!(groups);
                         }
@@ -205,6 +208,214 @@ fn analyse(query: &str) -> String {
     }
 
     answer.to_string()
+}
+
+/// Answers a request that carries a raw pattern.
+///
+/// This is the path an advanced user takes: the pattern goes straight to the
+/// compiler, and the answer says what the engine made of it - the match, the
+/// capture groups, or the reason it refused the pattern.
+fn pattern(query: &str) -> String {
+    let source = parameter(query, "pattern").unwrap_or_default();
+    let haystack = parameter(query, "haystack").unwrap_or_default();
+    let flags = parameter(query, "flags").unwrap_or_default();
+
+    let mut answer = json!({
+        "pattern": source,
+        "haystack": haystack,
+        "flags": flags,
+    });
+
+    match builder_with(&source, &flags).build() {
+        Ok(regex) => {
+            answer["status"] = json!("compiled");
+            let bytes = haystack.as_bytes();
+            match regex.captures(bytes) {
+                Some(captures) => {
+                    answer["matched"] = json!(true);
+                    answer["start"] = json!(captures.get(0).map(|span| span.start));
+                    answer["end"] = json!(captures.get(0).map(|span| span.end));
+                    answer["groups"] = json!(groups_of(&captures, bytes));
+                }
+                None => {
+                    answer["matched"] = json!(false);
+                    answer["groups"] = json!([]);
+                }
+            }
+        }
+        Err(error) => {
+            answer["status"] = json!("error");
+            answer["error"] = json!(error.to_string());
+            answer["error_kind"] = json!(error_kind(&error));
+            answer["error_position"] = json!(error_position(&error));
+        }
+    }
+
+    answer.to_string()
+}
+
+/// Answers a request about the automaton a pattern compiles into.
+///
+/// The automaton is what the engine runs on an embedded target: a table of
+/// states over the byte equivalence classes of the pattern.  The answer
+/// carries its shape, so an advanced user can see what the pattern costs.
+fn automaton(query: &str) -> String {
+    let mut answer = json!({});
+
+    let built = if let Some(source) = parameter(query, "pattern") {
+        answer["pattern"] = json!(source.clone());
+        let flags = parameter(query, "flags").unwrap_or_default();
+        answer["flags"] = json!(flags);
+        builder_with(&source, &flags).build()
+    } else {
+        let request = parameter(query, "request").unwrap_or_default();
+        answer["request"] = json!(request.clone());
+        match IntentModel::embedded().interpret(&request) {
+            IntentSpec::Confident(spec) => {
+                answer["kind"] = json!(render::candidate_short_name(&spec));
+                answer["spec"] = json!(render::intent_summary(&IntentSpec::Confident(spec)));
+                Regex::from_spec(&spec)
+            }
+            IntentSpec::Ambiguous {
+                reason,
+                suggestions,
+            } => {
+                answer["status"] = json!("ambiguous");
+                answer["reason"] = json!(format!("{reason:?}"));
+                answer["suggestions"] = json!(suggestions
+                    .iter()
+                    .map(|suggestion| suggestion.kind_name())
+                    .collect::<Vec<_>>());
+                return answer.to_string();
+            }
+        }
+    };
+
+    match built {
+        Ok(regex) => match regex.build_dfa() {
+            Ok(dfa) => {
+                answer["status"] = json!("ok");
+                answer["states"] = json!(dfa.state_count());
+                answer["classes"] = json!(dfa.class_count());
+                answer["accept_at_end"] = json!(dfa.accepts_at_end_only());
+                answer["transitions"] = json!(transitions_of(&dfa));
+                answer["accepting"] = json!(accepting_states(&dfa));
+            }
+            Err(error) => {
+                answer["status"] = json!("error");
+                answer["error"] = json!(error.to_string());
+                answer["error_kind"] = json!(error_kind(&error));
+                answer["error_position"] = json!(error_position(&error));
+            }
+        },
+        Err(error) => {
+            answer["status"] = json!("error");
+            answer["error"] = json!(error.to_string());
+            answer["error_kind"] = json!(error_kind(&error));
+            answer["error_position"] = json!(error_position(&error));
+        }
+    }
+
+    answer.to_string()
+}
+
+/// A builder for a pattern, with the flags of the engine.
+///
+/// The flags are the ones the page shows: `i` makes the match case
+/// insensitive, `m` makes the anchors match at the end of a line, and `s`
+/// makes the dot match a newline.  The same builder serves the analysis and
+/// the automaton, so the two always agree on what a pattern means.
+fn builder_with(source: &str, flags: &str) -> RegexBuilder {
+    let mut builder = Regex::builder().pattern(source);
+    if flags.contains('i') {
+        builder = builder.case_insensitive(true);
+    }
+    if flags.contains('m') {
+        builder = builder.multi_line(true);
+    }
+    if flags.contains('s') {
+        builder = builder.dot_matches_newline(true);
+    }
+    builder
+}
+
+/// The capture groups of a match, as JSON.
+fn groups_of(captures: &regie_core::Captures, bytes: &[u8]) -> Vec<serde_json::Value> {
+    let mut groups = Vec::new();
+    for index in 0..captures.len() {
+        if let Some(group) = captures.get(index) {
+            groups.push(json!({
+                "index": index,
+                "start": group.start,
+                "end": group.end,
+                "text": String::from_utf8_lossy(&bytes[group.start..group.end]),
+            }));
+        }
+    }
+    groups
+}
+
+/// The transitions of an automaton that lead somewhere.
+///
+/// The dead state is left out: it carries no information, and a table of
+/// 8 192 entries would drown the ones that matter.
+fn transitions_of(dfa: &Dfa) -> Vec<serde_json::Value> {
+    let mut out = Vec::new();
+    for state in 0..dfa.state_count() {
+        for class in 0..dfa.class_count() {
+            let target = dfa.transition(state as u16, class as u8);
+            if target != regie_core::dfa::DEAD_STATE {
+                out.push(json!({
+                    "from": state,
+                    "class": class,
+                    "to": target,
+                }));
+            }
+        }
+    }
+    out
+}
+
+/// The states of an automaton that accept a match.
+fn accepting_states(dfa: &Dfa) -> Vec<u16> {
+    let mut out = Vec::new();
+    for state in 0..dfa.state_count() {
+        if dfa.is_accept(state as u16) {
+            out.push(state as u16);
+        }
+    }
+    out
+}
+
+/// The name of the kind of a compilation failure.
+///
+/// The name is stable, so the page can tell the user what went wrong without
+/// parsing the message.
+fn error_kind(error: &RegexError) -> &'static str {
+    match error {
+        RegexError::PatternTooLong { .. } => "PatternTooLong",
+        RegexError::Syntax { .. } => "Syntax",
+        RegexError::Unsupported { .. } => "Unsupported",
+        RegexError::ProgramTooLarge { .. } => "ProgramTooLarge",
+        RegexError::TooManyGroups { .. } => "TooManyGroups",
+        RegexError::RepetitionTooLarge { .. } => "RepetitionTooLarge",
+        RegexError::NestingTooDeep { .. } => "NestingTooDeep",
+        RegexError::InvalidClass { .. } => "InvalidClass",
+        RegexError::DfaTooLarge { .. } => "DfaTooLarge",
+        RegexError::TooManyClasses { .. } => "TooManyClasses",
+        RegexError::ThreadLimitExceeded { .. } => "ThreadLimitExceeded",
+        _ => "Unknown",
+    }
+}
+
+/// The byte offset a compilation failure points at, when it points at one.
+fn error_position(error: &RegexError) -> Option<usize> {
+    match error {
+        RegexError::Syntax { position, .. } => Some(*position),
+        RegexError::Unsupported { position, .. } => Some(*position),
+        RegexError::InvalidClass { position, .. } => Some(*position),
+        _ => None,
+    }
 }
 
 /// Reads one parameter out of a query string.
