@@ -18,7 +18,7 @@
 //! |---|---|---|
 //! | literal | `abc` | bytes, not code points |
 //! | class | `[a-z]`, `[^a-z]` | ASCII ranges, POSIX shorthands |
-//! | alternation | `a|b` | left branch preferred |
+//! | alternation | `a\|b` | left branch preferred |
 //! | group | `(...)` | capturing |
 //! | non-capturing group | `(?:...)` | |
 //! | quantifier | `*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}` | greedy by default, `?` suffix for lazy |
