@@ -85,6 +85,93 @@ supported comes back as an ambiguity, which is the honest answer.
 The list is in [docs/LANGUAGES.md](docs/LANGUAGES.md) and it is checked by a
 test, so it cannot drift away from the model.
 
+## The model
+
+The intent layer is a **quantized Bernoulli Naive Bayes** over binary lexical
+features. It is the only learned thing in the project, and it is small enough
+to ship inside the firmware: 43 classes, 1,419 features, 61,060 parameters,
+and 99,121 bytes linked into the binary against a budget of 262,144.
+
+Those numbers are the output of the model itself, not a summary of it:
+
+```console
+$ cargo run -p regie-intent --example model_profile
+model: regie-intent, embedded and quantized
+  intent classes:   43
+    validate:       31
+    extract:        10
+    filter:         1
+    custom:         1
+  lexical features: 1419
+    words:          388
+    bigrams:        1018
+    shape buckets:  13
+  weight table:     61189 bytes
+    i8 weights:     61017 bytes
+    i32 biases:     172 bytes
+  class names:      43 entries, 712 bytes
+  vocabulary:       1419 entries, 13828 bytes
+  fat pointers:     23392 bytes (16 bytes per &str)
+  linked footprint: 99121 bytes
+  budget:           262144 bytes
+  a class wins when the score reaches 12 and the margin reaches 52
+```
+
+**How a request is scored**
+
+1. The text is normalized: lower-cased, accents folded to their base letter,
+   punctuation dropped. `café` and `cafe` produce the same tokens.
+2. It is split into tokens, and the features are the tokens, the pairs of
+   adjacent tokens and four coarse shape buckets (`#tok=5`, `#len=11-20`,
+   `#digits`, `#accent`).
+3. Each of the 43 classes is scored by adding the weights of the features that
+   are present to the bias of the class. The weights are the log-odds ratios of
+   the Naive Bayes, quantized to `i8` with a step of 0.0683.
+4. The best class wins, but only if it reaches a score of 12 **and** leads the
+   runner-up by 52.
+
+There is no floating point, no hashing and no randomness in that path, so the
+same request gives the same answer on every platform.
+
+**The refusal**
+
+A request that does not reach those thresholds comes back as an ambiguity
+instead of a guess:
+
+| reason | meaning |
+|---|---|
+| `LowConfidence` | no class scored high enough, or the request shares no word with the model at all |
+| `ConflictingKinds` | two classes explain the request equally well |
+
+The search layer adds a third, `InconsistentExamples`, when no candidate
+survives the examples you gave it. (`MissingDetail` is reserved and not
+produced yet.) A refusal carries the candidates the model could not choose
+between, and the caller decides what to do with them.
+
+**The training**
+
+The corpus is a table in `tools/train_intent.py` (744 records), the split is a
+fixed per-class rule - every fifth request of a class is held out - and the
+fit is closed-form, so the trainer needs no iteration, no seed and no
+shuffling. Running it twice produces byte-identical weights.
+
+* 602 records for the fit, 142 held out
+* 100 % accuracy on the held-out split (142/142)
+* 95.8 % resolved (136/142): the other six come back as a refusal
+
+That accuracy says very little about the model on requests the corpus does not
+contain, because the corpus is generated from templates.
+[docs/EVOLUTION.md](docs/EVOLUTION.md) says what would have to change.
+
+**What the model does not do**
+
+* It never writes pattern text. It picks one of the 43 enumerated families
+  and fills in the enumerated fields, so it cannot smuggle syntax into the
+  engine.
+* It never calls a service. The weights are compiled into the binary: no
+  network, no GPU and no Python at run time.
+* It never grows. The budget is 256 KiB and the model uses 97 KiB of it.
+
 ## Why five crates
 
 They split along the lines of what changes for different reasons. The dialect
@@ -176,7 +263,7 @@ enforced by a test.
   path. The intent model is integer-only end to end.
 * **A bounded model.** The intent model is 1,419 lexical features over 43
   classes, stored as `i8` weights. The whole model is 97 KiB, against a
-  budget of 256 KiB.
+  budget of 256 KiB. See [the model](#the-model).
 
 ## The dialect
 
