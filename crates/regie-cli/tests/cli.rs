@@ -65,18 +65,43 @@ fn ask(port: u16, request: &str) -> Option<String> {
     Some(answer)
 }
 
-/// Waits for the server to answer, and returns what it answered.
-fn wait_for_the_server(port: u16) -> Option<String> {
-    let request = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
-    for _ in 0..50 {
-        if let Some(answer) = ask(port, request) {
-            if answer.contains("200 OK") {
-                return Some(answer);
+/// The request that asks the server for its page.
+const PAGE: &str = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+
+/// Starts the server and returns the port it listens on.
+///
+/// The port is taken from the operating system and released right away, so
+/// there is a small window in which another test, running in parallel, could
+/// take it.  The server that loses the port stops at once, and the test takes
+/// another one.
+fn start_server() -> (u16, std::process::Child) {
+    for _ in 0..8 {
+        let port = free_port();
+        let mut child = Command::new(BIN)
+            .arg("serve")
+            .arg("--port")
+            .arg(port.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("the server could not be started");
+
+        for _ in 0..50 {
+            if let Some(answer) = ask(port, PAGE) {
+                if answer.contains("200 OK") {
+                    return (port, child);
+                }
             }
+            // The server that could not take the port is already gone.
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
         }
-        std::thread::sleep(Duration::from_millis(100));
+        let _ = child.kill();
+        let _ = child.wait();
     }
-    None
+    panic!("the server did not answer in time");
 }
 
 /// The body of an HTTP answer.
@@ -365,17 +390,9 @@ fn show_writes_plain_text_into_a_pipe() {
 
 #[test]
 fn serve_answers_the_page_and_the_analysis() {
-    let port = free_port();
-    let mut child = Command::new(BIN)
-        .arg("serve")
-        .arg("--port")
-        .arg(port.to_string())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("the server could not be started");
+    let (port, mut child) = start_server();
 
-    let page = wait_for_the_server(port);
+    let page = ask(port, PAGE);
     let analysis = page.as_ref().and_then(|_| {
         ask(
             port,
@@ -418,24 +435,6 @@ fn the_version_is_reported() {
 
     assert_eq!(code(&output), Some(0));
     assert!(stdout(&output).starts_with("regie "), "{}", stdout(&output));
-}
-
-/// Starts the server and returns the port it listens on.
-fn start_server() -> (u16, std::process::Child) {
-    let port = free_port();
-    let child = Command::new(BIN)
-        .arg("serve")
-        .arg("--port")
-        .arg(port.to_string())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("the server could not be started");
-    assert!(
-        wait_for_the_server(port).is_some(),
-        "the server did not answer in time"
-    );
-    (port, child)
 }
 
 #[test]
