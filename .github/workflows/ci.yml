@@ -311,15 +311,19 @@ jobs:
         run: cargo install cargo-llvm-cov --locked
 
       - name: Measure the coverage of regie-core
+        # `--html` is what writes the report, and `--output-dir` says where
+        # it goes: the tool appends `html` to the directory it is given.
+        # Without the first flag the step prints a table and writes
+        # nothing, and the upload below finds no file to upload.
         run: |
-          cargo llvm-cov --locked --package regie-core --all-features --summary-only \
-            --fail-under-lines 90
+          cargo llvm-cov --locked --package regie-core --all-features --html \
+            --output-dir target/llvm-cov-report --fail-under-lines 90
 
       - name: Upload the report
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: target/llvm-cov/target/site
+          path: target/llvm-cov-report/html
           # A run that produced no report must say so: an upload that finds
           # nothing is a green step that measured nothing.
           if-no-files-found: error
