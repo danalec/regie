@@ -125,8 +125,8 @@ def build(target: Path) -> tuple[Path, str]:
     environment["CARGO_TARGET_DIR"] = str(target)
 
     for arguments in (
-        ["build", "--workspace", "--examples", "--all-features"],
-        ["build", "--workspace", "--bins", "--all-features"],
+        ["build", "--locked", "--workspace", "--examples", "--all-features"],
+        ["build", "--locked", "--workspace", "--bins", "--all-features"],
     ):
         result = subprocess.run(
             ["cargo", *arguments],

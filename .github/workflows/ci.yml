@@ -1,10 +1,45 @@
+---
 name: CI
+
+# The gate of the project: the workspace stays warning-free, the tests pass,
+# the bare-metal targets build, the documentation builds, and every output
+# the documentation quotes is the output of the code.
+#
+# Two rules make the gate a door and not an open field.  They are the same
+# rules the sibling project rgx uses, and they are the two halves of it:
+#
+# * `permissions: contents: read` -- the token of the workflow reads the
+#   tree and does nothing else.  A job that is compromised through a
+#   dependency that turned malicious finds a read-only token to take.
+# * The jobs answer to the owner and to the collaborators, and to nobody
+#   else.  The repository is public, so the pull requests come from
+#   strangers, and a stranger's pull request would spend the owner's
+#   minutes on code the owner never asked for -- and would run that code
+#   on the owner's runner.  `author_association` says who opened the pull
+#   request: OWNER, MEMBER and COLLABORATOR are the ones with a key to the
+#   tree; CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR and NONE are the strangers.
+#   A push is not gated: only someone with write access can push, and that
+#   someone is a collaborator by definition.
+#
+# The expression is on one line on purpose: a YAML folded scalar does not
+# fold a line that is indented further than the first, and a newline inside
+# an expression is not an expression the runner reads.
+#
+# The other half of the door is not in this file but in the settings of the
+# repository: the pull requests from outside wait for the owner's approval
+# (`all_external_contributors`), and two rulesets protect `main` and the
+# tags from a deletion and from a force-push, so a stranger cannot invent a
+# release tag.  The owner is in the bypass list of both rulesets, because
+# the delivery force-pushes the mirror and moves the tag with it.
 
 on:
   push:
     branches: ["**"]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,7 +52,12 @@ jobs:
   # ---------------------------------------------------------------------------
   host:
     name: host (${{ matrix.os }}, rust ${{ matrix.toolchain }})
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ${{ matrix.os }}
+    # A job that hangs must not hang forever on the owner's minutes.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -52,28 +92,32 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
       - name: Build without default features (the no_std path)
         # The command line tool is a program of the host: it needs the
         # allocator of the engine, so it is not part of the `no_std` build.
-        run: cargo build --workspace --exclude regie-cli --no-default-features
+        run: cargo build --locked --workspace --exclude regie-cli --no-default-features
 
       - name: Build with every feature
-        run: cargo build --workspace --all-features
+        run: cargo build --locked --workspace --all-features
 
       - name: Test
-        run: cargo test --workspace --all-features
+        run: cargo test --locked --workspace --all-features
 
       - name: Documentation
-        run: cargo doc --workspace --all-features --no-deps
+        run: cargo doc --locked --workspace --all-features --no-deps
 
   # ---------------------------------------------------------------------------
   # Cross compilation to the bare-metal targets the project targets.
   # ---------------------------------------------------------------------------
   embedded:
     name: embedded (${{ matrix.target }})
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -100,15 +144,15 @@ jobs:
 
       - name: Build regie-core for the bare-metal target
         run: |
-          cargo build -p regie-core --no-default-features --target ${{ matrix.target }}
-          cargo build -p regie-core --no-default-features --features alloc --target ${{ matrix.target }}
-          cargo build -p regie-core --no-default-features --features serde --target ${{ matrix.target }}
+          cargo build --locked -p regie-core --no-default-features --target ${{ matrix.target }}
+          cargo build --locked -p regie-core --no-default-features --features alloc --target ${{ matrix.target }}
+          cargo build --locked -p regie-core --no-default-features --features serde --target ${{ matrix.target }}
 
       - name: Build regie-codec for the bare-metal target
-        run: cargo build -p regie-codec --no-default-features --target ${{ matrix.target }}
+        run: cargo build --locked -p regie-codec --no-default-features --target ${{ matrix.target }}
 
       - name: Build regie-intent for the bare-metal target
-        run: cargo build -p regie-intent --no-default-features --target ${{ matrix.target }}
+        run: cargo build --locked -p regie-intent --no-default-features --target ${{ matrix.target }}
 
       - name: Check the size of the core
         run: |
@@ -116,7 +160,7 @@ jobs:
           # The `no_std` core must stay small enough to link into firmware.
           # The archive of the library is the part that goes into the
           # firmware, so its size is the number that has to stay small.
-          cargo build --release -p regie-core --no-default-features --target ${{ matrix.target }}
+          cargo build --locked --release -p regie-core --no-default-features --target ${{ matrix.target }}
           bytes=$(wc -c < "target/${{ matrix.target }}/release/libregie_core.rlib")
           echo "libregie_core.rlib: $bytes bytes"
           limit=1048576
@@ -131,7 +175,11 @@ jobs:
   # ---------------------------------------------------------------------------
   no-allocator:
     name: no-allocator (thumbv6m-none-eabi)
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -141,7 +189,7 @@ jobs:
           targets: thumbv6m-none-eabi
 
       - name: Build the core without an allocator
-        run: cargo build -p regie-core --no-default-features --target thumbv6m-none-eabi
+        run: cargo build --locked -p regie-core --no-default-features --target thumbv6m-none-eabi
 
   # ---------------------------------------------------------------------------
   # The fuzz targets are compiled, and the corpus is replayed for a short time
@@ -149,7 +197,11 @@ jobs:
   # ---------------------------------------------------------------------------
   fuzz:
     name: fuzz (short run)
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -160,6 +212,14 @@ jobs:
 
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
+
+      # The fuzz directory holds a workspace of its own, and `cargo fuzz`
+      # takes no `--locked` of its own, so the lockfile is checked here
+      # instead: a workspace whose lockfile is stale would otherwise be
+      # resolved silently, and the build would not be the one that was
+      # reviewed.
+      - name: Check the lockfile of the fuzz workspace
+        run: cargo metadata --locked --manifest-path fuzz/Cargo.toml --format-version 1 > /dev/null
 
       - name: Build the fuzz targets
         # The fuzz directory holds a workspace of its own, and `cargo fuzz`
@@ -177,7 +237,11 @@ jobs:
   # ---------------------------------------------------------------------------
   differential:
     name: differential vs Python re
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -192,7 +256,7 @@ jobs:
           python-version: "3.14"
 
       - name: Build the differential example
-        run: cargo build -p regie-core --example differential
+        run: cargo build --locked -p regie-core --example differential
 
       - name: Compare against Python
         run: python tools/differential_test.py --cases 20000
@@ -203,7 +267,11 @@ jobs:
   # ---------------------------------------------------------------------------
   examples:
     name: examples
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -226,7 +294,11 @@ jobs:
   # ---------------------------------------------------------------------------
   coverage:
     name: coverage
+    # The same gate as every other job: the owner and the collaborators, and
+    # nobody else.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -240,7 +312,7 @@ jobs:
 
       - name: Measure the coverage of regie-core
         run: |
-          cargo llvm-cov --package regie-core --all-features --summary-only \
+          cargo llvm-cov --locked --package regie-core --all-features --summary-only \
             --fail-under-lines 90
 
       - name: Upload the report
@@ -248,3 +320,7 @@ jobs:
         with:
           name: coverage
           path: target/llvm-cov/target/site
+          # A run that produced no report must say so: an upload that finds
+          # nothing is a green step that measured nothing.
+          if-no-files-found: error
+          retention-days: 30

@@ -427,13 +427,21 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 213 unit, integration and documentation tests |
+| `cargo test --locked --workspace` | 213 unit, integration and documentation tests |
 | `tools/differential_test.py` | 24,589 cases against Python's `re` |
 | `tools/check_examples.py` | every output quoted in the documentation |
 | `tools/measure_languages.py` | the phrasings of the corpus per family and per language |
 | `cargo llvm-cov` | line coverage of `regie-core`, above 90% |
 | `fuzz/` | two fuzz targets: the parser and the compiler |
 | `cargo bench` | the Criterion suite of `regie-core` |
+
+The gate runs on GitHub Actions with a token that reads the tree and does
+nothing else, and every job answers to the owner and to the collaborators
+and to nobody else: a pull request from outside waits for the owner's
+approval and does not run on the owner's runner. Two rulesets protect `main`
+and the tags from a deletion and from a force-push, so a stranger cannot
+invent a release tag. The build uses the committed lockfile, so what CI
+builds is what was reviewed.
 
 ## Licence
 
