@@ -241,6 +241,41 @@ $ regie dfa '^ana@corp\.com$' ana.rdf
 wrote 558 bytes to ana.rdf (14 states, 10 byte classes)
 ```
 
+## The workbench
+
+`regie serve` puts the same engine in a browser. The page is embedded in the
+binary, the server listens on the loopback interface only, and nothing leaves
+the machine:
+
+```console
+$ cargo run -p regie-cli --bin regie -- serve --port 8080
+regie is serving the live view on http://127.0.0.1:8080
+press ctrl-c to stop it
+```
+
+![The workbench in the intent mode](docs/screenshots/workbench-intent.png)
+
+*In the intent mode a request in plain language goes through the model and
+comes back as a specification. The document on the left is a Markdown file
+with a live preview, and the match is lit up in it.*
+
+The mode switch at the top sends the pattern straight to the compiler, which is
+the path an advanced user takes. The flags of the engine are there, the match
+is shown in the document, and the automaton tab shows what the pattern costs:
+
+![The workbench in the pattern mode](docs/screenshots/workbench-pattern.png)
+
+![The automaton of the pattern](docs/screenshots/workbench-automaton.png)
+
+The document is a Markdown editor: the toolbar writes the markup, the find bar
+replaces, and the document is saved as a `.md` file or copied to the
+clipboard.
+
+The dialect panel lists what the engine accepts and what it refuses, with the
+reason of every refusal:
+
+![The dialect of the engine](docs/screenshots/workbench-dialect.png)
+
 ## The live view
 
 `regie show` builds the needle for you and shows what it caught. The request
@@ -256,16 +291,6 @@ haystack: mail ana@corp.com now
 groups:
   0: 5..17 "ana@corp.com"
   1: 5..17 "ana@corp.com"
-```
-
-`regie serve` puts the same view in a browser and follows the typing. The page
-is embedded in the binary, the server listens on the loopback interface only,
-and nothing leaves the machine:
-
-```text
-$ cargo run -p regie-cli --bin regie -- serve --port 8080
-regie is serving the live view on http://127.0.0.1:8080
-press ctrl-c to stop it
 ```
 
 ## Building
@@ -315,7 +340,7 @@ covers all of them plus the host platforms.
 
 | suite | what it covers |
 |---|---|
-| `cargo test --workspace` | 207 unit, integration and documentation tests |
+| `cargo test --workspace` | 213 unit, integration and documentation tests |
 | `tools/differential_test.py` | 24,589 cases against Python's `re` |
 | `tools/check_examples.py` | every output quoted in the documentation |
 | `tools/measure_languages.py` | the phrasings of the corpus per family and per language |

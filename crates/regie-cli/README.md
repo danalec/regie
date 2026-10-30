@@ -86,14 +86,25 @@ note: a validation is anchored - the whole haystack has to be the value
 ```
 
 `--watch <file>` prints the view again every time the file changes, which is
-what a log file or a template needs. `serve` serves the same view as a page
-that follows the typing:
+what a log file or a template needs.
+
+`serve` serves the workbench: a Markdown document with a live preview, the
+answer of the engine, and a console that keeps the history. The page is
+embedded in the binary, the server listens on the loopback interface only, and
+nothing leaves the machine:
 
 ```text
 $ regie serve --port 8080
 regie is serving the live view on http://127.0.0.1:8080
 press ctrl-c to stop it
 ```
+
+![The workbench of the engine](../../docs/screenshots/workbench-intent.png)
+
+The mode switch sends the pattern straight to the compiler, and the automaton
+tab shows what the pattern costs:
+
+![The pattern mode of the workbench](../../docs/screenshots/workbench-pattern.png)
 
 ## The exit codes
 
