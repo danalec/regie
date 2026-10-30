@@ -247,7 +247,7 @@ wrote 558 bytes to ana.rdf (14 states, 10 byte classes)
 binary, the server listens on the loopback interface only, and nothing leaves
 the machine:
 
-```console
+```text
 $ cargo run -p regie-cli --bin regie -- serve --port 8080
 regie is serving the live view on http://127.0.0.1:8080
 press ctrl-c to stop it
